@@ -39,11 +39,227 @@ pub struct Cli {
     quiet: bool,
 }
 
+/// Commands for managing Codex CLI profiles
+#[derive(Subcommand, Debug, Clone)]
+pub enum CodexCliCommands {
+    /// Save current Codex auth as a named profile
+    #[command(alias = "s")]
+    Save {
+        /// Profile name
+        name: String,
+        /// Optional description
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Force overwrite if exists
+        #[arg(short, long)]
+        force: bool,
+        /// Encrypt profile with passphrase
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// Load a saved profile and switch to it
+    #[command(alias = "l")]
+    Load {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+        /// Passphrase to decrypt profile
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// List all saved Codex profiles
+    #[command(alias = "ls")]
+    List {
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+    },
+    /// Delete a saved Codex profile
+    #[command(alias = "rm")]
+    Delete {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Show current Codex profile status
+    Status,
+}
+
+/// Commands for managing Claude CLI profiles
+#[derive(Subcommand, Debug, Clone)]
+pub enum ClaudeCliCommands {
+    /// Save current Claude auth as a named profile
+    #[command(alias = "s")]
+    Save {
+        /// Profile name
+        name: String,
+        /// Optional description
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Force overwrite if exists
+        #[arg(short, long)]
+        force: bool,
+        /// Encrypt profile with passphrase
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// Load a saved profile and switch to it
+    #[command(alias = "l")]
+    Load {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+        /// Passphrase to decrypt profile
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// List all saved Claude profiles
+    #[command(alias = "ls")]
+    List {
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+    },
+    /// Delete a saved Claude profile
+    #[command(alias = "rm")]
+    Delete {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Show current Claude profile status
+    Status,
+}
+
+/// Commands for managing Gemini CLI profiles
+#[derive(Subcommand, Debug, Clone)]
+pub enum GeminiCliCommands {
+    /// Save current Gemini auth as a named profile
+    #[command(alias = "s")]
+    Save {
+        /// Profile name
+        name: String,
+        /// Optional description
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Force overwrite if exists
+        #[arg(short, long)]
+        force: bool,
+        /// Encrypt profile with passphrase
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// Load a saved profile and switch to it
+    #[command(alias = "l")]
+    Load {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+        /// Passphrase to decrypt profile
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// List all saved Gemini profiles
+    #[command(alias = "ls")]
+    List {
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+    },
+    /// Delete a saved Gemini profile
+    #[command(alias = "rm")]
+    Delete {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Show current Gemini profile status
+    Status,
+}
+
+/// Commands for managing OpenAI CLI profiles
+#[derive(Subcommand, Debug, Clone)]
+pub enum OpenaiCliCommands {
+    /// Save current OpenAI auth as a named profile
+    #[command(alias = "s")]
+    Save {
+        /// Profile name
+        name: String,
+        /// Optional description
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Force overwrite if exists
+        #[arg(short, long)]
+        force: bool,
+        /// Encrypt profile with passphrase
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// Load a saved profile and switch to it
+    #[command(alias = "l")]
+    Load {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+        /// Passphrase to decrypt profile
+        #[arg(short = 'p', long, env = "POLYCLI_PASSPHRASE")]
+        passphrase: Option<String>,
+    },
+    /// List all saved OpenAI profiles
+    #[command(alias = "ls")]
+    List {
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+    },
+    /// Delete a saved OpenAI profile
+    #[command(alias = "rm")]
+    Delete {
+        /// Profile name
+        name: String,
+        /// Skip confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Show current OpenAI profile status
+    Status,
+}
+
 /// Available CLI commands
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
-    /// Save current Codex auth as a named profile
+    /// Manage Codex CLI profiles
+    #[command(subcommand)]
+    Codex(CodexCliCommands),
+
+    /// Manage Claude CLI profiles
+    #[command(subcommand)]
+    Claude(ClaudeCliCommands),
+
+    /// Manage Gemini CLI profiles
+    #[command(subcommand)]
+    Gemini(GeminiCliCommands),
+
+    /// Manage OpenAI CLI profiles
+    #[command(subcommand)]
+    Openai(OpenaiCliCommands),
+
+    /// Save current AI CLI auth as a named profile (auto-detects CLI type)
     #[command(alias = "s")]
     Save {
         /// Profile name
@@ -261,6 +477,82 @@ async fn main() -> Result<()> {
         } => {
             load::execute(config, name, force, dry_run, cli.quiet, passphrase).await?;
         }
+        // Codex CLI commands
+        Commands::Codex(cmd) => match cmd {
+            CodexCliCommands::Save { name, description, force, passphrase } => {
+                save::execute(config, name, description, force, cli.quiet, passphrase).await?;
+            }
+            CodexCliCommands::Load { name, force, passphrase } => {
+                load::execute(config, name, force, false, cli.quiet, passphrase).await?;
+            }
+            CodexCliCommands::List { detailed } => {
+                list::execute(config, detailed, cli.quiet).await?;
+            }
+            CodexCliCommands::Delete { name, force } => {
+                delete::execute(config, name, force, cli.quiet).await?;
+            }
+            CodexCliCommands::Status => {
+                status::execute(config, cli.quiet).await?;
+            }
+        }
+
+        // Claude CLI commands
+        Commands::Claude(cmd) => match cmd {
+            ClaudeCliCommands::Save { name, description, force, passphrase } => {
+                save::execute(config, name, description, force, cli.quiet, passphrase).await?;
+            }
+            ClaudeCliCommands::Load { name, force, passphrase } => {
+                load::execute(config, name, force, false, cli.quiet, passphrase).await?;
+            }
+            ClaudeCliCommands::List { detailed } => {
+                list::execute(config, detailed, cli.quiet).await?;
+            }
+            ClaudeCliCommands::Delete { name, force } => {
+                delete::execute(config, name, force, cli.quiet).await?;
+            }
+            ClaudeCliCommands::Status => {
+                status::execute(config, cli.quiet).await?;
+            }
+        }
+
+        // Gemini CLI commands
+        Commands::Gemini(cmd) => match cmd {
+            GeminiCliCommands::Save { name, description, force, passphrase } => {
+                save::execute(config, name, description, force, cli.quiet, passphrase).await?;
+            }
+            GeminiCliCommands::Load { name, force, passphrase } => {
+                load::execute(config, name, force, false, cli.quiet, passphrase).await?;
+            }
+            GeminiCliCommands::List { detailed } => {
+                list::execute(config, detailed, cli.quiet).await?;
+            }
+            GeminiCliCommands::Delete { name, force } => {
+                delete::execute(config, name, force, cli.quiet).await?;
+            }
+            GeminiCliCommands::Status => {
+                status::execute(config, cli.quiet).await?;
+            }
+        }
+
+        // OpenAI CLI commands
+        Commands::Openai(cmd) => match cmd {
+            OpenaiCliCommands::Save { name, description, force, passphrase } => {
+                save::execute(config, name, description, force, cli.quiet, passphrase).await?;
+            }
+            OpenaiCliCommands::Load { name, force, passphrase } => {
+                load::execute(config, name, force, false, cli.quiet, passphrase).await?;
+            }
+            OpenaiCliCommands::List { detailed } => {
+                list::execute(config, detailed, cli.quiet).await?;
+            }
+            OpenaiCliCommands::Delete { name, force } => {
+                delete::execute(config, name, force, cli.quiet).await?;
+            }
+            OpenaiCliCommands::Status => {
+                status::execute(config, cli.quiet).await?;
+            }
+        }
+
         Commands::List { detailed } => {
             list::execute(config, detailed, cli.quiet).await?;
         }
