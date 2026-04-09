@@ -2,7 +2,7 @@
 # Multi-stage build for minimal size
 
 # Stage 1: Build
-FROM rust:1.85-slim-bookworm AS builder
+FROM rust:1.94-slim-bookworm AS builder
 
 WORKDIR /usr/src/codexo
 
