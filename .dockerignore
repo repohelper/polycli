@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+target/
+**/*.rs.bk
+*.pdb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (NEVER commit)
+*.key
+*.pem
+*.env
+.env.local
+auth.json
+.cookies
+
+# Testing
+*.profraw
+*.profdata
+coverage/
+lcov.info
+
+# Temporary
+/tmp/
+*.tmp
+*.bak
