@@ -37,16 +37,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download artifacts from CI
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: codexctl-*
-          merge-multiple: true
-          workflow: ci.yml
-          run-id: ${{ steps.ci-run.outputs.ci_run }}
-
-      - name: List artifacts
-        run: ls -la artifacts/
+        run: |
+          gh run download ${{ steps.ci-run.outputs.ci_run }} --repo repohelper/codexctl --dir artifacts
+          ls -la artifacts/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
