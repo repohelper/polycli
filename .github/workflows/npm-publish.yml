@@ -21,43 +21,11 @@ jobs:
           VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "//;s/"//' | tr -d ' ')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-  create-release:
-    name: Create GitHub Release
-    needs: get-version
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Get latest CI run ID
-        id: ci-run
-        run: |
-          CI_RUN=$(gh api repos/repohelper/codexctl/actions/runs --jq '.workflow_runs[] | select(.head_branch == "main" and .conclusion == "success" and .name == "CI") | .id' | head -1)
-          echo "ci_run=$CI_RUN" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download artifacts from CI
-        run: |
-          gh run download ${{ steps.ci-run.outputs.ci_run }} --repo repohelper/codexctl --dir artifacts
-          ls -la artifacts/
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.get-version.outputs.version }}
-          name: Release v${{ needs.get-version.outputs.version }}
-          files: artifacts/*
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   publish-platforms:
     name: Publish platform packages
     runs-on: ubuntu-latest
     continue-on-error: true
-    needs: [get-version, create-release]
+    needs: get-version
     strategy:
       fail-fast: false
       matrix:
@@ -76,33 +44,37 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       
-      - name: Download from GitHub Release
+      - name: Download latest CI artifacts
+        run: |
+          CI_RUN=$(gh api repos/repohelper/codexctl/actions/runs --jq '.workflow_runs[] | select(.head_branch == "main" and .conclusion == "success" and .name == "CI") | .id' | head -1)
+          gh run download "$CI_RUN" --repo repohelper/codexctl --dir artifacts
+          ls -la artifacts/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract binary
         run: |
           mkdir -p npm-platforms/${{ matrix.platform }}/bin
           
           case "${{ matrix.platform }}" in
             linux-x64)
-              curl -sL https://github.com/repohelper/codexctl/releases/download/v${{ needs.get-version.outputs.version }}/codexctl-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C npm-platforms/${{ matrix.platform }}/bin
+              tar -xzf artifacts/codexctl-x86_64-unknown-linux-gnu.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
               ;;
             linux-arm64)
-              curl -sL https://github.com/repohelper/codexctl/releases/download/v${{ needs.get-version.outputs.version }}/codexctl-aarch64-unknown-linux-gnu.tar.gz | tar -xz -C npm-platforms/${{ matrix.platform }}/bin
+              tar -xzf artifacts/codexctl-aarch64-unknown-linux-gnu.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
               ;;
             darwin-x64)
-              curl -sL https://github.com/repohelper/codexctl/releases/download/v${{ needs.get-version.outputs.version }}/codexctl-x86_64-apple-darwin.tar.gz | tar -xz -C npm-platforms/${{ matrix.platform }}/bin
+              tar -xzf artifacts/codexctl-x86_64-apple-darwin.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
               ;;
             darwin-arm64)
-              curl -sL https://github.com/repohelper/codexctl/releases/download/v${{ needs.get-version.outputs.version }}/codexctl-aarch64-apple-darwin.tar.gz | tar -xz -C npm-platforms/${{ matrix.platform }}/bin
+              tar -xzf artifacts/codexctl-aarch64-apple-darwin.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
               ;;
             win32-x64)
-              curl -sLO https://github.com/repohelper/codexctl/releases/download/v${{ needs.get-version.outputs.version }}/codexctl-x86_64-pc-windows-msvc.zip
-              unzip -o codexctl-x86_64-pc-windows-msvc.zip -d npm-platforms/${{ matrix.platform }}/bin
-              rm -f codexctl-x86_64-pc-windows-msvc.zip
+              unzip -o artifacts/codexctl-x86_64-pc-windows-msvc.zip -d npm-platforms/${{ matrix.platform }}/bin
               ;;
           esac
           
           ls -la npm-platforms/${{ matrix.platform }}/bin/
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Update version
         run: |
