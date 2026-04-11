@@ -87,8 +87,6 @@ jobs:
         run: |
           cd npm-platforms/${{ matrix.platform }}
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-main:
     name: Publish main package
@@ -121,5 +119,14 @@ jobs:
       - name: Publish to npm
         working-directory: ./npm
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-success:
+    name: Notify completion
+    runs-on: ubuntu-latest
+    needs: [publish-platforms, publish-main]
+    if: always()
+    steps:
+      - run: |
+          echo "Publishing completed"
+          echo "Platform packages: ${{ needs.publish-platforms.result }}"
+          echo "Main package: ${{ needs.publish-main.result }}"
