@@ -120,7 +120,7 @@ jobs:
     name: Publish main package
     runs-on: ubuntu-latest
     continue-on-error: true
-    needs: [get-version, create-release]
+    needs: [get-version]
     steps:
       - uses: actions/checkout@v6
       
