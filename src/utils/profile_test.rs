@@ -94,9 +94,9 @@ mod tests {
         let payload = URL_SAFE_NO_PAD.encode(b"{\"email\":\"jwt-test@example.com\"}");
         let signature = "dummy-signature";
 
-        let mock_jwt = format!("{}.{}.{}", header, payload, signature);
+        let mock_jwt = format!("{header}.{payload}.{signature}");
 
-        let mock_auth = format!("{{\"tokens\": {{\"id_token\": \"{}\"}}}}", mock_jwt);
+        let mock_auth = format!("{{\"tokens\": {{\"id_token\": \"{mock_jwt}\"}}}}");
 
         let mut profile = Profile::new("test".to_string(), None, None);
         profile.add_file("auth.json", mock_auth.into_bytes());

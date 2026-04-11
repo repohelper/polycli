@@ -13,7 +13,7 @@ pub async fn execute(config: Config, all: bool, realtime: bool, quiet: bool) -> 
     let auth_path = codex_dir.join("auth.json");
 
     if !auth_path.exists() {
-        anyhow::bail!("No Codex authentication found. Please login with: codex login");
+        anyhow::bail!("No `Codex` authentication found. Please login with: codex login");
     }
 
     let Ok(content) = tokio::fs::read_to_string(&auth_path).await else {
@@ -24,7 +24,7 @@ pub async fn execute(config: Config, all: bool, realtime: bool, quiet: bool) -> 
         anyhow::bail!("Failed to parse auth.json");
     };
 
-    // Extract usage info from the JWT tokens
+    // Extract usage info from the `JWT` tokens
     let usage_info = extract_usage_info(&auth_json)?;
 
     // Display usage info
@@ -51,7 +51,7 @@ pub async fn execute(config: Config, all: bool, realtime: bool, quiet: bool) -> 
     Ok(())
 }
 
-/// Fetch real-time quota from OpenAI API
+/// Fetch real-time quota from `OpenAI` API
 async fn fetch_realtime_quota(
     auth_json: &serde_json::Value,
 ) -> anyhow::Result<crate::utils::api::RealTimeQuota> {
@@ -63,6 +63,7 @@ async fn fetch_realtime_quota(
 }
 
 /// Display real-time quota information
+#[allow(clippy::cast_precision_loss)]
 fn display_realtime_quota(quota: &crate::utils::api::RealTimeQuota) {
     println!("\n{}", "📈 Real-Time Quota (from OpenAI API)".bold().cyan());
     println!();
@@ -121,7 +122,7 @@ fn display_realtime_quota(quota: &crate::utils::api::RealTimeQuota) {
 
     if let Some(days) = quota.days_until_reset() {
         let days_text = if days > 0 {
-            format!("{} days until reset", days)
+            format!("{days} days until reset")
         } else {
             "Resets today".to_string()
         };
@@ -144,6 +145,7 @@ fn display_realtime_quota(quota: &crate::utils::api::RealTimeQuota) {
 }
 
 /// Show usage information for all profiles
+#[allow(clippy::too_many_lines)]
 async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
     use chrono::{DateTime, Utc};
 
@@ -168,7 +170,7 @@ async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
             .to_string_lossy()
             .to_string();
 
-        if name == "backups" {
+        if name == "backups" || name.starts_with('.') {
             continue;
         }
 
@@ -201,24 +203,18 @@ async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
 
     // Sort by plan type (enterprise > team > personal)
     profiles_with_usage.sort_by(|a, b| {
-        let score_a =
-            a.1.as_ref()
-                .map(|u| match u.plan_type.as_str() {
-                    "enterprise" => 3,
-                    "team" => 2,
-                    "personal" => 1,
-                    _ => 0,
-                })
-                .unwrap_or(0);
-        let score_b =
-            b.1.as_ref()
-                .map(|u| match u.plan_type.as_str() {
-                    "enterprise" => 3,
-                    "team" => 2,
-                    "personal" => 1,
-                    _ => 0,
-                })
-                .unwrap_or(0);
+        let score_a = a.1.as_ref().map_or(0, |u| match u.plan_type.as_str() {
+            "enterprise" => 3,
+            "team" => 2,
+            "personal" => 1,
+            _ => 0,
+        });
+        let score_b = b.1.as_ref().map_or(0, |u| match u.plan_type.as_str() {
+            "enterprise" => 3,
+            "team" => 2,
+            "personal" => 1,
+            _ => 0,
+        });
         score_b.cmp(&score_a)
     });
 
@@ -297,7 +293,7 @@ async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
 }
 
 fn display_usage_table(info: &UsageInfo) {
-    println!("\n{}", "📊 Codex Usage & Subscription Info".bold().cyan());
+    println!("\n{}", "`Codex` Usage & Subscription Info".bold().cyan());
     println!();
 
     let mut table = Table::new();
@@ -351,13 +347,13 @@ fn display_usage_table(info: &UsageInfo) {
 
         table.add_row(Row::new(vec![
             Cell::new("Subscription"),
-            Cell::new(&format!("{} to {}", start_formatted, end_formatted)),
+            Cell::new(&format!("{start_formatted} to {end_formatted}")),
         ]));
 
         // Calculate days remaining
         if let Ok(days) = calculate_days_remaining(end) {
             let (days_text, color) = if days > 0 {
-                (format!("{} days remaining", days), "Fg")
+                (format!("{days} days remaining"), "Fg")
             } else {
                 (format!("Expired {} days ago", days.abs()), "Fr")
             };
@@ -413,7 +409,7 @@ fn display_limits_info(_info: &UsageInfo) {
     println!("{}", "💡 Tips:".dimmed());
     println!(
         "  {}",
-        "• Codex CLI shows usage warnings when approaching limits".dimmed()
+        "• `Codex` CLI shows usage warnings when approaching limits".dimmed()
     );
     println!(
         "  {}",
@@ -448,7 +444,7 @@ fn format_date(iso_date: &str) -> String {
                 _ => date_parts[1],
             };
             let day = date_parts[2];
-            return format!("{} {}, {}", month, day, year);
+            return format!("{month} {day}, {year}");
         }
     }
 
@@ -459,7 +455,7 @@ fn calculate_days_remaining(iso_date: &str) -> Result<i64> {
     use chrono::{DateTime, Utc};
 
     let end_date = DateTime::parse_from_rfc3339(iso_date)
-        .map_err(|e| anyhow::anyhow!("Failed to parse date: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?;
 
     let now = Utc::now();
     let duration = end_date.with_timezone(&Utc) - now;

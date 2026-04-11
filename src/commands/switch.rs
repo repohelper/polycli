@@ -37,7 +37,7 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
                         .and_then(|v| {
                             v.get("description")
                                 .and_then(|d| d.as_str())
-                                .map(|s| s.to_string())
+                                .map(ToString::to_string)
                         })
                 })
             } else {
@@ -59,11 +59,10 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
     let display_items: Vec<String> = profiles
         .iter()
         .map(|(name, desc)| {
-            if let Some(d) = desc {
-                format!("{} - {}", name.bold(), d.dimmed())
-            } else {
-                name.bold().to_string()
-            }
+            desc.as_ref().map_or_else(
+                || name.bold().to_string(),
+                |d| format!("{} - {}", name.bold(), d.dimmed()),
+            )
         })
         .collect();
 

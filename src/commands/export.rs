@@ -1,19 +1,20 @@
-#![allow(deprecated)]
-
 use crate::utils::config::Config;
-use anyhow::Result;
+use crate::utils::validation::ProfileName;
+use anyhow::{Context as _, Result};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use colored::Colorize as _;
 
 pub async fn execute(config: Config, name: String, quiet: bool) -> Result<()> {
-    let profile_dir = config.profile_path(&name);
+    let profile_name = ProfileName::try_from(name.as_str())
+        .with_context(|| format!("Invalid profile name '{name}'"))?;
+    let profile_dir = config.profile_path_validated(&profile_name)?;
 
     if !profile_dir.exists() {
-        anyhow::bail!("Profile '{}' not found", name);
+        anyhow::bail!("Profile '{name}' not found");
     }
 
     // Create tarball
-    let tarball = create_tarball(&profile_dir).await?;
+    let tarball = create_tarball(&profile_dir)?;
 
     // Compress (gzip)
     let compressed = compress(&tarball)?;
@@ -25,10 +26,10 @@ pub async fn execute(config: Config, name: String, quiet: bool) -> Result<()> {
         println!("{} Profile {} exported\n", "✓".green().bold(), name.cyan());
     }
 
-    println!("{}", encoded);
+    println!("{encoded}");
 
     // Also save to file
-    let export_path = profile_dir.join(format!("{}.export.txt", name));
+    let export_path = profile_dir.join(format!("{name}.export.txt"));
     tokio::fs::write(&export_path, &encoded).await?;
 
     if !quiet {
@@ -49,7 +50,7 @@ fn compress(data: &[u8]) -> Result<Vec<u8>> {
     Ok(encoder.finish()?)
 }
 
-async fn create_tarball(dir: &std::path::Path) -> Result<Vec<u8>> {
+fn create_tarball(dir: &std::path::Path) -> Result<Vec<u8>> {
     use std::io::Cursor;
     use tar::Builder;
 

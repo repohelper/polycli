@@ -26,7 +26,7 @@ FROM debian:bookworm-slim
 
 LABEL maintainer="Bhanu Korthiwada"
 LABEL description="CodexCTL - Codex CLI Profile Manager"
-LABEL version="0.1.0"
+LABEL version="0.2.0"
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -40,7 +40,7 @@ RUN useradd -m -s /bin/bash codexctl
 
 # Copy binary from builder
 COPY --from=builder /usr/src/codexctl/target/release/codexctl /usr/local/bin/codexctl
-COPY --from=builder /usr/src/codexctl/target/release/cdx /usr/local/bin/cdx
+RUN ln -s /usr/local/bin/codexctl /usr/local/bin/cdx
 
 # Set permissions
 RUN chmod +x /usr/local/bin/codexctl /usr/local/bin/cdx

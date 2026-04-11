@@ -1,50 +1,35 @@
 {
   "name": "codexctl",
-  "version": "0.2.0",
-  "description": "Codex CLI Profile Manager - Manage multiple OpenAI Codex CLI accounts",
-  "main": "index.js",
-  "bin": {
-    "codexctl": "./bin/codexctl",
-    "cdx": "./bin/cdx"
-  },
-  "scripts": {
-    "postinstall": "node install.js",
-    "test": "echo 'Binary package - no tests'"
-  },
+  "version": "0.5.22",
+  "description": "Codex CLI Profile Manager - Manage multiple AI CLI accounts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/repohelper/codexctl.git"
   },
-  "keywords": [
-    "ai",
-    "cli",
-    "profile",
-    "manager",
-    "codex",
-    "claude",
-    "gemini",
-    "openai",
-    "multi-account"
-  ],
+  "keywords": ["ai", "cli", "codex", "claude", "gemini", "openai", "profile", "manager"],
   "author": "Bhanu Korthiwada",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/repohelper/codexctl/issues"
   },
-  "homepage": "https://codexctl.repohelper.com",
+  "homepage": "https://github.com/repohelper/codexctl",
   "engines": {
     "node": ">=16"
   },
+  "bin": {
+    "codexctl": "./codexctl.js"
+  },
+  "optionalDependencies": {
+    "@codexctl/linux-x64": "^0.5.22",
+    "@codexctl/linux-arm64": "^0.5.22",
+    "@codexctl/darwin-x64": "^0.5.22",
+    "@codexctl/darwin-arm64": "^0.5.22",
+    "@codexctl/win32-x64": "^0.5.22"
+  },
   "files": [
-    "bin/",
-    "install.js",
+    "codexctl.js",
+    "index.js",
     "README.md",
     "LICENSE"
-  ],
-  "trusted-publishers": [
-    {
-      "type": "GitHub Actions",
-      "workflow": "release.yml"
-    }
   ]
 }

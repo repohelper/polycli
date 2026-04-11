@@ -1,16 +1,15 @@
 # CodexCTL
 
 [![CI](https://github.com/repohelper/codexctl/actions/workflows/ci.yml/badge.svg)](https://github.com/repohelper/codexctl/actions)
-[![npm](https://img.shields.io/npm/v/codexctl.svg)](https://www.npmjs.com/package/codexctl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust Version](https://img.shields.io/badge/rust-1.94%2B-blue.svg)](https://www.rust-lang.org)
 
 > **Codex CLI Profile Manager** - Manage multiple OpenAI Codex CLI accounts
 
-**Version**: 0.2.0 | **Author**: [Bhanu Korthiwada](https://github.com/BhanuKorthiwada) | **Status**: ✅ Public Beta
+**Version**: 0.4.0 | **Author**: [Bhanu Korthiwada](https://github.com/BhanuKorthiwada) | **Status**: ✅ Stable Release
 
-🔗 **Website**: [codexctl.repohelper.com](https://codexctl.repohelper.com)  
-📖 **Documentation**: [codexctl.repohelper.com/docs](https://codexctl.repohelper.com/docs)
+🔗 **Website**: [codexctl on GitHub](https://github.com/repohelper/codexctl)  
+📖 **Documentation**: See README for usage
 
 ---
 
@@ -61,8 +60,8 @@ cargo install codexctl
 # Or via npm
 npm install -g codexctl
 
-# Or download binary
-curl -fsSL https://codexctl.repohelper.com/install.sh | sh
+# Or download binary from GitHub Releases
+curl -fsSL https://github.com/repohelper/codexctl/releases
 
 # Or via Homebrew (macOS/Linux)
 brew install repohelper/tap/codexctl
@@ -214,5 +213,4 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Made with ❤️ by [Bhanu Korthiwada](https://github.com/BhanuKorthiwada)**  
-Part of the [RepoHelper](https://repohelper.com) project collection.
+**Made with ❤️ by [Bhanu Korthiwada](https://github.com/BhanuKorthiwada)**

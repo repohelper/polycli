@@ -1,13 +1,11 @@
 [package]
 name = "codexctl"
-version = "0.2.0"
+version = "0.6.0"
 edition = "2024"
 authors = ["Bhanu Korthiwada"]
 description = "Codex CLI Profile Manager - Manage multiple OpenAI Codex CLI accounts"
 license = "MIT"
 repository = "https://github.com/repohelper/codexctl"
-homepage = "https://codexctl.repohelper.com"
-documentation = "https://codexctl.repohelper.com/docs"
 readme = "README.md"
 keywords = ["codex", "openai", "cli", "profile", "manager", "oauth"]
 categories = ["command-line-utilities", "development-tools"]
@@ -15,10 +13,6 @@ rust-version = "1.94.1"
 
 [[bin]]
 name = "codexctl"
-path = "src/main.rs"
-
-[[bin]]
-name = "cdx"
 path = "src/main.rs"
 
 [dependencies]
@@ -66,7 +60,9 @@ semver = { version = "1.0", features = ["serde"] }
 
 # Cryptography (optional)
 aes-gcm = { version = "0.11.0-rc.3", optional = true }
-rand = { version = "0.9", optional = true }
+
+# Random number generation (used by transaction module)
+rand = "0.9"
 
 # Utilities
 which = "8.0"
@@ -87,7 +83,7 @@ secrecy = "0.10"
 
 [features]
 default = ["encryption"]
-encryption = ["aes-gcm", "rand"]
+encryption = ["aes-gcm"]
 full = ["encryption"]
 
 [dev-dependencies]

@@ -3,7 +3,8 @@ use anyhow::Result;
 use chrono::Local;
 use colored::Colorize as _;
 
-pub async fn execute(config: Config, name: Option<String>, quiet: bool) -> Result<()> {
+#[allow(clippy::needless_pass_by_value)]
+pub fn execute(config: Config, name: Option<String>, quiet: bool) -> Result<()> {
     let codex_dir = config.codex_dir();
     let backup_dir = config.backup_dir();
 

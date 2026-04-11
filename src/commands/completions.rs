@@ -30,8 +30,7 @@ pub fn generate_completions(shell: &str) -> Result<String> {
         }
         _ => {
             anyhow::bail!(
-                "Unsupported shell: {}. Supported: bash, zsh, fish, powershell, elvish",
-                shell
+                "Unsupported shell: {shell}. Supported: bash, zsh, fish, powershell, elvish"
             );
         }
     }
@@ -76,14 +75,13 @@ fn completion_install_path(shell: &str) -> Result<(PathBuf, &'static str)> {
         }
         _ => {
             anyhow::bail!(
-                "Auto-install not supported for {}. Use --print to output and install manually.",
-                shell
+                "Auto-install not supported for {shell}. Use --print to output and install manually."
             );
         }
     }
 }
 
-/// Returns the PowerShell completion directory for the current platform.
+/// Returns the `PowerShell` completion directory for the current platform.
 fn powershell_completion_dir() -> Result<PathBuf> {
     if cfg!(target_os = "windows") {
         // %USERPROFILE%\Documents\PowerShell\Completions

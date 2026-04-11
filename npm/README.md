@@ -1,6 +1,6 @@
 # CodexCTL
 
-Codex CLI Profile Manager - Manage multiple OpenAI Codex CLI accounts
+Codex CLI Profile Manager - Manage multiple AI CLI accounts (Codex, Claude, Gemini, OpenAI)
 
 ## Installation
 
@@ -13,38 +13,35 @@ Or use npx (no install):
 npx codexctl --help
 ```
 
-## Usage
+## Quick Start
 
 ```bash
-# Save your current Codex CLI profile
-cdx save work
-cdx save personal
+# Save your current CLI profile
+codexctl save work
+codexctl save personal
 
 # Switch between profiles
-cdx load work
-cdx load personal
+codexctl load work
 
 # List all profiles
-cdx list
-
-# Quick-switch to previous profile
-cdx load -
-
-# Auto-switch to best profile based on quota
-cdx load auto
+codexctl list
 ```
 
 ## Features
 
-- 🔐 **Optional Encryption** - age-based encryption for sensitive auth data
-- 🚀 **Fast Switching** - Switch accounts in < 1 second
-- 🤖 **Auto-Switcher** - Automatically pick the best profile based on quota
-- 📊 **Real-Time Quota** - Live usage data from OpenAI API
-- 🌳 **Concurrent Usage** - Use multiple profiles simultaneously
+- Optional encryption for sensitive auth data
+- Fast profile switching
+- Multiple AI CLI support (Codex, Claude, Gemini, OpenAI)
+- Export to use profiles concurrently in different terminals
 
-## Documentation
+## Binary Package
 
-Full documentation: https://codexctl.repohelper.com
+This npm package downloads pre-built binaries from GitHub Releases on install.
+
+Supported platforms:
+- Linux (x86_64, arm64)
+- macOS (x86_64, arm64)  
+- Windows (x86_64)
 
 ## License
 

@@ -1,0 +1,24 @@
+{
+  "name": "@codexctl/linux-x64",
+  "version": "0.5.16",
+  "description": "The Linux x86_64 binary for codexctl",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/repohelper/codexctl.git"
+  },
+  "keywords": ["codexctl", "cli", "ai", "profile-manager"],
+  "author": "Bhanu Korthiwada",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/repohelper/codexctl/issues"
+  },
+  "homepage": "https://github.com/repohelper/codexctl",
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "bin": {
+    "codexctl": "./bin/codexctl"
+  },
+  "files": [
+    "bin"
+  ]
+}

@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use colored::Colorize as _;
 use prettytable::{Cell, Row, Table, format};
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -105,7 +106,6 @@ pub async fn log_command(config: &Config, profile: &str, command: &str) -> Resul
     let line = serde_json::to_string(&entry)?;
 
     // Append to file
-    use tokio::io::AsyncWriteExt;
     let mut file = tokio::fs::OpenOptions::new()
         .create(true)
         .append(true)

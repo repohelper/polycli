@@ -1,10 +1,10 @@
-//! Shared authentication utilities for extracting data from JWT tokens.
+//! Shared authentication utilities for extracting data from `JWT` tokens.
 
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde_json::Value;
 
-/// Usage limits and subscription information extracted from the JWT token.
+/// Usage limits and subscription information extracted from the `JWT` token.
 #[derive(Debug, Clone)]
 pub struct UsageInfo {
     /// Authenticated user email
@@ -15,16 +15,13 @@ pub struct UsageInfo {
     pub subscription_start: Option<String>,
     /// ISO 8601 subscription end date
     pub subscription_end: Option<String>,
-    /// OpenAI account identifier
+    /// `OpenAI` account identifier
     pub account_id: String,
-    /// OpenAI user identifier
-    #[allow(dead_code)]
-    pub user_id: String,
     /// Organisation memberships with roles
     pub organizations: Vec<String>,
 }
 
-/// Extract the email claim from a JWT id\_token string.
+/// Extract the email claim from a `JWT` `id_token` string.
 ///
 /// The token is decoded without signature verification — only the payload is
 /// inspected.  Returns `None` when the token is malformed or carries no email.
@@ -70,8 +67,8 @@ pub async fn read_email_from_codex_dir(codex_dir: &std::path::Path) -> Option<St
 ///
 /// # Errors
 ///
-/// Returns an error if the JWT is missing, malformed, or lacks the expected
-/// OpenAI custom claims.
+/// Returns an error if the `JWT` is missing, malformed, or lacks the expected
+/// `OpenAI` custom claims.
 pub fn extract_usage_info(auth_json: &Value) -> Result<UsageInfo> {
     let id_token = auth_json
         .get("tokens")
@@ -86,13 +83,13 @@ pub fn extract_usage_info(auth_json: &Value) -> Result<UsageInfo> {
 
     let payload = URL_SAFE_NO_PAD
         .decode(parts[1])
-        .map_err(|e| anyhow::anyhow!("Failed to decode JWT: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to decode JWT: {e}"))?;
 
-    let payload_str = std::str::from_utf8(&payload)
-        .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in JWT: {}", e))?;
+    let payload_str =
+        std::str::from_utf8(&payload).map_err(|e| anyhow::anyhow!("Invalid UTF-8 in JWT: {e}"))?;
 
     let payload_json: Value = serde_json::from_str(payload_str)
-        .map_err(|e| anyhow::anyhow!("Failed to parse JWT payload: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse JWT payload: {e}"))?;
 
     let email = payload_json
         .get("email")
@@ -102,7 +99,7 @@ pub fn extract_usage_info(auth_json: &Value) -> Result<UsageInfo> {
 
     let openai_auth = payload_json
         .get("https://api.openai.com/auth")
-        .ok_or_else(|| anyhow::anyhow!("No OpenAI auth claims found"))?;
+        .ok_or_else(|| anyhow::anyhow!("No `OpenAI` auth claims found"))?;
 
     let plan_type = openai_auth
         .get("chatgpt_plan_type")
@@ -123,12 +120,6 @@ pub fn extract_usage_info(auth_json: &Value) -> Result<UsageInfo> {
     let account_id = openai_auth
         .get("chatgpt_account_id")
         .and_then(|a| a.as_str())
-        .unwrap_or("unknown")
-        .to_string();
-
-    let user_id = openai_auth
-        .get("chatgpt_user_id")
-        .and_then(|u| u.as_str())
         .unwrap_or("unknown")
         .to_string();
 
@@ -156,7 +147,6 @@ pub fn extract_usage_info(auth_json: &Value) -> Result<UsageInfo> {
         subscription_start,
         subscription_end,
         account_id,
-        user_id,
         organizations,
     })
 }

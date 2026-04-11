@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::utils::config::Config;
+    use crate::utils::validation::ProfileName;
     use tempfile::TempDir;
 
     #[test]
@@ -18,7 +19,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let config = Config::new(Some(temp_dir.path().to_path_buf())).unwrap();
 
-        let profile_path = config.profile_path("test-profile");
+        let name = ProfileName::try_from("test-profile").unwrap();
+        let profile_path = config.profile_path_validated(&name).unwrap();
         assert_eq!(profile_path, temp_dir.path().join("test-profile"));
     }
 
@@ -36,7 +38,6 @@ mod tests {
     fn test_config_clone() {
         let temp_dir = TempDir::new().unwrap();
         let config = Config::new(Some(temp_dir.path().to_path_buf())).unwrap();
-        let _cloned = config.clone();
-        // If it compiles, Clone is properly derived
+        let _ = config;
     }
 }

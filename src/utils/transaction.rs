@@ -11,18 +11,18 @@ use crate::utils::files::{copy_dir_recursive, copy_profile_files};
 ///
 /// # Lifecycle
 ///
-/// 1. `ProfileTransaction::new(target_dir)` – allocate staging space.
-/// 2. `stage_profile(src, files)` – populate staging with profile files.
-/// 3. `commit()` – atomically swap staging → target (old target saved internally).
-/// 4. `cleanup_original()` – drop the pre-commit snapshot when no longer needed.
-/// 5. `rollback()` – restore the pre-commit snapshot (can be called after commit too).
+/// 1. [`ProfileTransaction::new`] – allocate staging space.
+/// 2. [`stage_profile`] – populate staging with profile files.
+/// 3. [`commit`] – atomically swap staging → target (old target saved internally).
+/// 4. [`cleanup_original`] – drop the pre-commit snapshot when no longer needed.
+/// 5. [`rollback`] – restore the pre-commit snapshot (can be called after commit too).
 ///
 /// On `Drop`, any un-committed staging directory is removed automatically.
 pub struct ProfileTransaction {
     target_dir: PathBuf,
     /// Temp directory for the incoming profile (same filesystem as target).
     staging_dir: PathBuf,
-    /// Where the original target_dir was moved to during `commit()` (enables rollback).
+    /// Where the original `target_dir` was moved to during `commit()` (enables rollback).
     original_dir: Option<PathBuf>,
     staged: bool,
     committed: bool,
@@ -154,11 +154,11 @@ impl ProfileTransaction {
             }
 
             // Restore original if there was one.
-            if let Some(ref orig) = self.original_dir.take() {
-                if orig.exists() {
-                    std::fs::rename(orig, &self.target_dir)
-                        .context("Failed to restore original profile during rollback")?;
-                }
+            if let Some(ref orig) = self.original_dir.take()
+                && orig.exists()
+            {
+                std::fs::rename(orig, &self.target_dir)
+                    .context("Failed to restore original profile during rollback")?;
             }
 
             self.committed = false;
@@ -183,24 +183,23 @@ impl ProfileTransaction {
     ///
     /// Returns an error if the directory cannot be removed.
     pub fn cleanup_original(&self) -> Result<()> {
-        if let Some(ref orig) = self.original_dir {
-            if orig.exists() {
-                std::fs::remove_dir_all(orig)
-                    .context("Failed to remove original backup after commit")?;
-            }
+        if let Some(ref orig) = self.original_dir
+            && orig.exists()
+        {
+            std::fs::remove_dir_all(orig)
+                .context("Failed to remove original backup after commit")?;
         }
         Ok(())
     }
 
     /// Path where the original target was saved after `commit()`, if any.
     #[must_use]
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn original_backup_path(&self) -> Option<&Path> {
         self.original_dir.as_deref()
     }
 
-    /// The staging directory path (useful for inspection in tests).
-    #[cfg(test)]
+    /// The staging directory path.
     #[must_use]
     pub fn staging_dir(&self) -> &Path {
         &self.staging_dir
@@ -217,8 +216,12 @@ impl Drop for ProfileTransaction {
     }
 }
 
-/// Generate a path with a unique numeric suffix so it does not collide with
+/// Generate a path with a unique suffix so it does not collide with
 /// any existing entry in `parent`.
+///
+/// Uses a combination of timestamp and random suffix to avoid collisions
+/// under concurrent access.
+#[allow(clippy::unnecessary_wraps)]
 fn unique_sibling_path(parent: &Path, prefix: &str) -> Result<PathBuf> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -226,7 +229,9 @@ fn unique_sibling_path(parent: &Path, prefix: &str) -> Result<PathBuf> {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos());
 
-    let path = parent.join(format!("{prefix}_{ts}"));
+    let rand_suffix: u64 = rand::random::<u64>();
+
+    let path = parent.join(format!("{prefix}_{ts}_{rand_suffix:016x}"));
     Ok(path)
 }
 

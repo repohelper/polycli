@@ -15,7 +15,7 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
         let codex_installed = which::which("codex").is_ok();
         println!(
             "  {}: {}",
-            "Codex CLI".dimmed(),
+            "(`Codex` CLI)".dimmed(),
             if codex_installed {
                 "installed ✓".green()
             } else {
@@ -24,7 +24,7 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
         );
 
         // Check codex directory
-        println!("  {}: {}", "Codex Dir".dimmed(), codex_dir.display());
+        println!("  {}: {}", "`Codex` Dir".dimmed(), codex_dir.display());
 
         if codex_dir.exists() {
             // Extract current email
@@ -34,7 +34,8 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
                     "Current Email".dimmed(),
                     "not logged in".yellow()
                 );
-                return show_profiles_info(config, quiet).await;
+                show_profiles_info(config, quiet);
+                return Ok(());
             };
 
             println!("  {}: {}", "Current Email".dimmed(), email.green());
@@ -56,13 +57,14 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
             println!("  {}: {}", "Status".dimmed(), "Not configured".yellow());
         }
 
-        show_profiles_info(config, quiet).await?;
+        show_profiles_info(config, quiet);
     }
 
     Ok(())
 }
 
-async fn show_profiles_info(config: Config, quiet: bool) -> Result<()> {
+#[allow(clippy::needless_pass_by_value)]
+fn show_profiles_info(config: Config, quiet: bool) {
     // Show profiles count
     let profiles_dir = config.profiles_dir();
     let profile_count = if profiles_dir.exists() {
@@ -89,6 +91,4 @@ async fn show_profiles_info(config: Config, quiet: bool) -> Result<()> {
         );
         println!("  {}: {}", "Profile Dir".dimmed(), profiles_dir.display());
     }
-
-    Ok(())
 }

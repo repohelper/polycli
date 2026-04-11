@@ -65,6 +65,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           cd target/${{ matrix.target }}/release
+          ln -sf codexctl cdx
           tar czvf ../../../codexctl-${{ matrix.target }}.tar.gz codexctl cdx
           cd ../../..
 
@@ -72,6 +73,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd target/${{ matrix.target }}/release
+          copy codexctl.exe cdx.exe
           7z a ../../../codexctl-${{ matrix.target }}.zip codexctl.exe cdx.exe
           cd ../../..
 

@@ -1,18 +1,40 @@
 name: Publish to npm
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write  # Required for trusted publishing
+  id-token: write
 
 jobs:
-  publish-npm:
-    name: Publish to npm Registry
+  get-version:
+    name: Get version from Cargo.toml
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Extract version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "//;s/"//' | tr -d ' ')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  publish-platforms:
+    name: Publish platform packages
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: get-version
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux-x64
+          - linux-arm64
+          - darwin-x64
+          - darwin-arm64
+          - win32-x64
     steps:
       - uses: actions/checkout@v6
       
@@ -22,22 +44,82 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       
-      - name: Extract version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
-      - name: Update package.json version
-        working-directory: ./npm
+      - name: Download latest CI artifacts
         run: |
-          npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+          CI_RUN=$(gh api repos/repohelper/codexctl/actions/runs --jq '.workflow_runs[] | select(.head_branch == "main" and .conclusion == "success" and .name == "CI") | .id' | head -1)
+          echo "Downloading artifacts from CI run: $CI_RUN"
+          gh run download "$CI_RUN" --repo repohelper/codexctl --dir artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Publish to npm (Trusted Publisher)
-        working-directory: ./npm
-        run: npm publish --provenance --access public
+      - name: Extract binary
+        run: |
+          mkdir -p npm-platforms/${{ matrix.platform }}/bin
+          
+          case "${{ matrix.platform }}" in
+            linux-x64)
+              tar -xzf artifacts/codexctl-x86_64-unknown-linux-gnu/codexctl-x86_64-unknown-linux-gnu.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
+              ;;
+            linux-arm64)
+              tar -xzf artifacts/codexctl-aarch64-unknown-linux-gnu/codexctl-aarch64-unknown-linux-gnu.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
+              ;;
+            darwin-x64)
+              tar -xzf artifacts/codexctl-x86_64-apple-darwin/codexctl-x86_64-apple-darwin.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
+              ;;
+            darwin-arm64)
+              tar -xzf artifacts/codexctl-aarch64-apple-darwin/codexctl-aarch64-apple-darwin.tar.gz -C npm-platforms/${{ matrix.platform }}/bin
+              ;;
+            win32-x64)
+              unzip -o artifacts/codexctl-x86_64-pc-windows-msvc/codexctl-x86_64-pc-windows-msvc.zip -d npm-platforms/${{ matrix.platform }}/bin
+              ;;
+          esac
+          
+          ls -la npm-platforms/${{ matrix.platform }}/bin/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Update version
+        run: |
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${{ needs.get-version.outputs.version }}\"/" npm-platforms/${{ matrix.platform }}/package.json
+          cat npm-platforms/${{ matrix.platform }}/package.json
+      
+      - name: Publish to npm
+        run: |
+          cd npm-platforms/${{ matrix.platform }}
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-main:
+    name: Publish main package
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: get-version
+    steps:
+      - uses: actions/checkout@v6
       
-      - name: Verify publication
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Update version
+        working-directory: ./npm
         run: |
-          echo "Published codexctl@${{ steps.get_version.outputs.VERSION }} to npm"
-          npm view codexctl@${{ steps.get_version.outputs.VERSION }} || true
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${{ needs.get-version.outputs.version }}';
+            for (const key of Object.keys(pkg.optionalDependencies)) {
+              pkg.optionalDependencies[key] = '^${{ needs.get-version.outputs.version }}';
+            }
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          cat package.json
+      
+      - name: Publish to npm
+        working-directory: ./npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

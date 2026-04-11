@@ -49,7 +49,10 @@ pub fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     std::fs::create_dir_all(dst)
         .with_context(|| format!("Failed to create directory: {}", dst.display()))?;
 
-    for entry in WalkDir::new(src).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(src)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+    {
         let path = entry.path();
         let Ok(relative) = path.strip_prefix(src) else {
             continue;
@@ -91,6 +94,7 @@ pub fn create_backup(codex_dir: &Path, backup_dir: &Path) -> Result<PathBuf> {
 }
 
 /// Check if codex CLI is installed
+/// Reserved for future use with --doctor detailed mode
 #[must_use]
 #[allow(dead_code)]
 pub fn check_codex_installed() -> bool {

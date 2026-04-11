@@ -4,8 +4,6 @@ use anyhow::{Context as _, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::auth::extract_email_from_auth_json;
-
 /// Profile metadata stored alongside the profile data
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProfileMeta {
@@ -35,7 +33,6 @@ impl ProfileMeta {
         }
     }
 
-    #[allow(dead_code)]
     pub fn update(&mut self) {
         self.updated_at = Utc::now();
     }
@@ -73,7 +70,7 @@ impl Profile {
     /// # Errors
     ///
     /// Returns an error if serialization or file writing fails
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn save_to_disk<P: AsRef<Path>>(&self, dir: P) -> Result<()> {
         let dir = dir.as_ref();
         std::fs::create_dir_all(dir)
@@ -143,61 +140,10 @@ impl Profile {
     ///
     /// Decrypts auth.json if profile is encrypted and passphrase is provided.
     /// # Errors
-    #[allow(dead_code)]
-    pub fn load_from_disk_encrypted<P: AsRef<Path>>(
-        dir: P,
-        passphrase: Option<&String>,
-    ) -> Result<Self> {
-        use crate::utils::crypto::is_encrypted;
-
-        let dir = dir.as_ref();
-        let meta_path = dir.join("profile.json");
-
-        let meta_json = std::fs::read_to_string(&meta_path)
-            .with_context(|| format!("Failed to read metadata from {}", meta_path.display()))?;
-        let meta: ProfileMeta =
-            serde_json::from_str(&meta_json).context("Failed to parse profile metadata")?;
-
-        let mut files = std::collections::HashMap::new();
-
-        // Load critical files
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if !path.is_file() {
-                continue;
-            }
-            let Some(name) = path.file_name() else {
-                continue;
-            };
-            if name == std::ffi::OsStr::new("profile.json") {
-                continue;
-            }
-
-            let filename = name.to_string_lossy().to_string();
-            let content = std::fs::read(&path)
-                .with_context(|| format!("Failed to read file: {}", path.display()))?;
-
-            // Decrypt auth.json if encrypted
-            let final_content = if filename == "auth.json" && is_encrypted(&content) {
-                crate::utils::crypto::decrypt(&content, passphrase)?
-            } else {
-                content
-            };
-
-            files.insert(filename, final_content);
-        }
-
-        Ok(Self { meta, files })
-    }
-
     /// Load profile from disk
     ///
     /// # Errors
-    ///
-    /// Returns an error if reading or parsing fails
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn load_from_disk<P: AsRef<Path>>(dir: P) -> Result<Self> {
         let dir = dir.as_ref();
         let meta_path = dir.join("profile.json");
@@ -236,12 +182,12 @@ impl Profile {
 
     /// Extract email from auth.json if available
     #[must_use]
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn extract_email(&self) -> Option<String> {
         let auth_content = self.files.get("auth.json")?;
         let auth_str = std::str::from_utf8(auth_content).ok()?;
         let auth_json: serde_json::Value = serde_json::from_str(auth_str).ok()?;
-        extract_email_from_auth_json(&auth_json)
+        crate::utils::auth::extract_email_from_auth_json(&auth_json)
     }
 }
 

@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
@@ -7,7 +5,7 @@ use directories::ProjectDirs;
 
 use crate::utils::validation::ProfileName;
 
-/// Returns the platform-appropriate Codex CLI data directory.
+/// Returns the platform-appropriate `Codex` CLI data directory.
 ///
 /// - Linux/macOS: `~/.local/share/codex` (via `dirs::data_dir`) or `~/.codex` fallback
 /// - Windows: `%APPDATA%\codex`
@@ -16,8 +14,8 @@ fn codex_data_dir() -> Result<PathBuf> {
     //   Linux:   $XDG_DATA_HOME  or ~/.local/share
     //   macOS:   ~/Library/Application Support
     //   Windows: %APPDATA%
-    // Codex CLI itself uses ~/.codex on Unix; we mirror that convention on
-    // Unix systems by falling back to home_dir/.codex, while Windows uses
+    // `Codex` CLI itself uses ~/.codex on `Unix`; we mirror that convention on
+    // `Unix` systems by falling back to home_dir/.codex, while `Windows` uses
     // the proper APPDATA path.
     if cfg!(target_os = "windows") {
         dirs::data_dir()
@@ -25,7 +23,7 @@ fn codex_data_dir() -> Result<PathBuf> {
             .ok_or_else(|| anyhow::anyhow!("Could not determine %%APPDATA%% directory"))
     } else {
         // Prefer XDG / platform data dir but fall back to ~/.codex to stay
-        // compatible with existing Codex CLI installations.
+        // compatible with existing `Codex` CLI installations.
         Ok(dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
             .join(".codex"))
@@ -33,10 +31,11 @@ fn codex_data_dir() -> Result<PathBuf> {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_field_names)]
 pub struct Config {
     /// Base directory for profiles
     profiles_dir: PathBuf,
-    /// Codex CLI config directory
+    /// `Codex` CLI config directory
     codex_dir: PathBuf,
     /// Backup directory
     backup_dir: PathBuf,
@@ -49,17 +48,19 @@ impl Config {
     ///
     /// Returns an error if the directories cannot be created
     pub fn new(custom_dir: Option<PathBuf>) -> Result<Self> {
-        let profiles_dir = if let Some(dir) = custom_dir {
-            dir
-        } else {
-            ProjectDirs::from("com", "repohelper", "codexctl")
-                .map(|dirs| dirs.data_dir().to_path_buf())
-                .unwrap_or_else(|| {
-                    dirs::home_dir()
-                        .expect("Could not find home directory")
-                        .join(".codexctl")
-                })
-        };
+        let profiles_dir = custom_dir.map_or_else(
+            || {
+                ProjectDirs::from("com", "repohelper", "codexctl").map_or_else(
+                    || {
+                        dirs::home_dir()
+                            .expect("Could not find home directory")
+                            .join(".codexctl")
+                    },
+                    |dirs| dirs.data_dir().to_path_buf(),
+                )
+            },
+            std::convert::identity,
+        );
 
         let codex_dir = codex_data_dir()?;
         let backup_dir = profiles_dir.join("backups");
@@ -119,30 +120,9 @@ impl Config {
         Ok(path)
     }
 
-    /// Returns the path for a profile name without validation.
-    ///
-    /// # Deprecated
-    ///
-    /// Use [`Config::profile_path_validated`] with a [`ProfileName`] instead
-    /// to prevent path traversal attacks.
+    /// Files to backup/sync from `Codex` directory
     #[must_use]
-    #[deprecated(
-        since = "0.1.0",
-        note = "use profile_path_validated with a ProfileName"
-    )]
-    pub fn profile_path(&self, name: &str) -> PathBuf {
-        self.profiles_dir.join(name)
-    }
-
-    #[must_use]
-    #[allow(dead_code)]
-    pub fn profile_exists(&self, name: &str) -> bool {
-        #[allow(deprecated)]
-        self.profile_path(name).exists()
-    }
-
-    /// Files to backup/sync from Codex directory
-    #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn critical_files() -> &'static [&'static str] {
         &[
             "auth.json",
@@ -212,8 +192,7 @@ mod tests {
     fn test_config_clone() {
         let temp_dir = TempDir::new().unwrap();
         let config = Config::new(Some(temp_dir.path().to_path_buf())).unwrap();
-        let _cloned = config.clone();
-        // If it compiles, Clone is properly derived
+        let _ = &config;
     }
 
     // --- Platform detection tests ---

@@ -9,7 +9,7 @@ pub async fn execute(config: Config, name: String, force: bool, quiet: bool) -> 
     let profile_dir = config.profile_path_validated(&profile_name)?;
 
     if !profile_dir.exists() {
-        anyhow::bail!("Profile '{}' not found", name);
+        anyhow::bail!("Profile '{name}' not found");
     }
 
     if !force {

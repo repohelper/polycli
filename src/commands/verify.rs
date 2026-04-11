@@ -46,7 +46,6 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
         let score = |r: &ProfileStatus| match r {
             ProfileStatus::Valid { .. } => 0,
             ProfileStatus::Invalid(_) => 1,
-            ProfileStatus::Unknown => 2,
         };
         score(&a.1).cmp(&score(&b.1))
     });
@@ -61,18 +60,16 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
         .filter(|(_, r)| matches!(r, ProfileStatus::Invalid(_)))
         .count();
     if invalid_count > 0 {
-        anyhow::bail!("{} profile(s) have invalid authentication", invalid_count);
+        anyhow::bail!("{invalid_count} profile(s) have invalid authentication");
     }
 
     Ok(())
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 enum ProfileStatus {
     Valid { email: String, plan: String },
     Invalid(String),
-    Unknown,
 }
 
 async fn verify_profile(profile_dir: &std::path::Path) -> ProfileStatus {
@@ -84,7 +81,7 @@ async fn verify_profile(profile_dir: &std::path::Path) -> ProfileStatus {
 
     let auth_content = match tokio::fs::read_to_string(&auth_path).await {
         Ok(c) => c,
-        Err(e) => return ProfileStatus::Invalid(format!("Cannot read auth.json: {}", e)),
+        Err(e) => return ProfileStatus::Invalid(format!("Cannot read auth.json: {e}")),
     };
 
     // Check if encrypted
@@ -94,10 +91,10 @@ async fn verify_profile(profile_dir: &std::path::Path) -> ProfileStatus {
 
     let auth_json: serde_json::Value = match serde_json::from_str(&auth_content) {
         Ok(j) => j,
-        Err(e) => return ProfileStatus::Invalid(format!("Invalid auth.json: {}", e)),
+        Err(e) => return ProfileStatus::Invalid(format!("Invalid auth.json: {e}")),
     };
 
-    // Try to extract usage info (validates JWT structure)
+    // Try to extract usage info (validates `JWT` structure)
     match extract_usage_info(&auth_json) {
         Ok(usage) => {
             // Check if token is expired
@@ -105,7 +102,7 @@ async fn verify_profile(profile_dir: &std::path::Path) -> ProfileStatus {
                 match calculate_days_remaining(end) {
                     Ok(days) if days < 0 => ProfileStatus::Invalid(format!(
                         "Subscription expired {} days ago",
-                        days.abs()
+                        days.unsigned_abs()
                     )),
                     _ => ProfileStatus::Valid {
                         email: usage.email,
@@ -119,7 +116,7 @@ async fn verify_profile(profile_dir: &std::path::Path) -> ProfileStatus {
                 }
             }
         }
-        Err(e) => ProfileStatus::Invalid(format!("Cannot parse token: {}", e)),
+        Err(e) => ProfileStatus::Invalid(format!("Cannot parse token: {e}")),
     }
 }
 
@@ -147,7 +144,7 @@ fn display_results(results: &[(String, ProfileStatus)]) {
                 table.add_row(Row::new(vec![
                     Cell::new(name).style_spec("Fg"),
                     Cell::new("✓ Valid").style_spec("Fg"),
-                    Cell::new(&format!("{} ({})", email, plan_badge)),
+                    Cell::new(&format!("{email} ({plan_badge})")),
                 ]));
             }
             ProfileStatus::Invalid(reason) => {
@@ -155,13 +152,6 @@ fn display_results(results: &[(String, ProfileStatus)]) {
                     Cell::new(name).style_spec("Fg"),
                     Cell::new("✗ Invalid").style_spec("Fr"),
                     Cell::new(reason).style_spec("Fy"),
-                ]));
-            }
-            ProfileStatus::Unknown => {
-                table.add_row(Row::new(vec![
-                    Cell::new(name).style_spec("Fg"),
-                    Cell::new("? Unknown"),
-                    Cell::new("Could not verify"),
                 ]));
             }
         }
@@ -192,7 +182,7 @@ fn calculate_days_remaining(iso_date: &str) -> anyhow::Result<i64> {
     use chrono::{DateTime, Utc};
 
     let end_date = DateTime::parse_from_rfc3339(iso_date)
-        .map_err(|e| anyhow::anyhow!("Failed to parse date: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?;
 
     let now = Utc::now();
     let duration = end_date.with_timezone(&Utc) - now;

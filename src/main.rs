@@ -1,4 +1,4 @@
-//! CodexCTL - Universal AI CLI Profile Manager
+//! `CodexCTL` - Universal AI CLI Profile Manager
 
 use std::path::PathBuf;
 
@@ -12,13 +12,13 @@ mod utils;
 use commands::{backup, delete, list, load, run, save, status};
 use utils::config::Config;
 
-/// CodexCTL - Codex CLI Profile Manager
+/// `CodexCTL` - `Codex` CLI Profile Manager
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "codexctl",
     bin_name = "codexctl",
     version,
-    about = "Codex CLI Profile Manager - Manage multiple OpenAI Codex CLI accounts",
+    about = "Codex CLI Profile Manager - Manage multiple `OpenAI` `Codex` CLI accounts",
     long_about = None
 )]
 #[command(arg_required_else_help = true)]
@@ -39,10 +39,10 @@ pub struct Cli {
     quiet: bool,
 }
 
-/// Commands for managing Codex CLI profiles
+/// Commands for managing `Codex` CLI profiles
 #[derive(Subcommand, Debug, Clone)]
 pub enum CodexCliCommands {
-    /// Save current Codex auth as a named profile
+    /// Save current `Codex` auth as a named profile
     #[command(alias = "s")]
     Save {
         /// Profile name
@@ -69,14 +69,14 @@ pub enum CodexCliCommands {
         #[arg(short = 'p', long, env = "CODEXCTL_PASSPHRASE")]
         passphrase: Option<String>,
     },
-    /// List all saved Codex profiles
+    /// List all saved `Codex` profiles
     #[command(alias = "ls")]
     List {
         /// Show detailed information
         #[arg(short, long)]
         detailed: bool,
     },
-    /// Delete a saved Codex profile
+    /// Delete a saved `Codex` profile
     #[command(alias = "rm")]
     Delete {
         /// Profile name
@@ -85,7 +85,7 @@ pub enum CodexCliCommands {
         #[arg(short, long)]
         force: bool,
     },
-    /// Show current Codex profile status
+    /// Show current `Codex` profile status
     Status,
 }
 
@@ -189,10 +189,10 @@ pub enum GeminiCliCommands {
     Status,
 }
 
-/// Commands for managing OpenAI CLI profiles
+/// Commands for managing `OpenAI` CLI profiles
 #[derive(Subcommand, Debug, Clone)]
 pub enum OpenaiCliCommands {
-    /// Save current OpenAI auth as a named profile
+    /// Save current `OpenAI` auth as a named profile
     #[command(alias = "s")]
     Save {
         /// Profile name
@@ -219,14 +219,14 @@ pub enum OpenaiCliCommands {
         #[arg(short = 'p', long, env = "CODEXCTL_PASSPHRASE")]
         passphrase: Option<String>,
     },
-    /// List all saved OpenAI profiles
+    /// List all saved `OpenAI` profiles
     #[command(alias = "ls")]
     List {
         /// Show detailed information
         #[arg(short, long)]
         detailed: bool,
     },
-    /// Delete a saved OpenAI profile
+    /// Delete a saved `OpenAI` profile
     #[command(alias = "rm")]
     Delete {
         /// Profile name
@@ -235,7 +235,7 @@ pub enum OpenaiCliCommands {
         #[arg(short, long)]
         force: bool,
     },
-    /// Show current OpenAI profile status
+    /// Show current `OpenAI` profile status
     Status,
 }
 
@@ -243,7 +243,7 @@ pub enum OpenaiCliCommands {
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
-    /// Manage Codex CLI profiles
+    /// Manage `Codex` CLI profiles
     #[command(subcommand)]
     Codex(CodexCliCommands),
 
@@ -255,7 +255,7 @@ pub enum Commands {
     #[command(subcommand)]
     Gemini(GeminiCliCommands),
 
-    /// Manage OpenAI CLI profiles
+    /// Manage `OpenAI` CLI profiles
     #[command(subcommand)]
     Openai(OpenaiCliCommands),
 
@@ -319,7 +319,7 @@ pub enum Commands {
         /// Show usage for all profiles
         #[arg(short, long)]
         all: bool,
-        /// Fetch real-time quota from OpenAI API (requires API key)
+        /// Fetch real-time quota from `OpenAI` API (requires API key)
         #[arg(short, long)]
         realtime: bool,
     },
@@ -430,13 +430,14 @@ pub enum ShellType {
     Zsh,
     /// Fish shell
     Fish,
-    /// PowerShell
+    /// `PowerShell`
     PowerShell,
     /// Elvish shell
     Elvish,
 }
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -605,7 +606,7 @@ async fn main() -> Result<()> {
             commands::verify::execute(config, cli.quiet).await?;
         }
         Commands::Backup { name } => {
-            backup::execute(config, name, cli.quiet).await?;
+            backup::execute(config, name, cli.quiet)?;
         }
         Commands::Run { profile, command } => {
             run::execute(config, profile, command, cli.quiet).await?;
@@ -615,7 +616,7 @@ async fn main() -> Result<()> {
             shell,
             unset,
         } => {
-            commands::env::execute(config, profile, shell, unset, cli.quiet).await?;
+            commands::env::execute(config, profile, shell, unset, cli.quiet)?;
         }
         Commands::Diff {
             profile1,
@@ -644,7 +645,7 @@ async fn main() -> Result<()> {
 
             if print {
                 let output = commands::completions::generate_completions(shell_str)?;
-                println!("{}", output);
+                println!("{output}");
             } else {
                 commands::completions::install_completions(shell_str)?;
             }

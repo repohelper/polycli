@@ -1,9 +1,10 @@
-//! OpenAI API client for fetching real-time quota information
+//! `OpenAI` API client for fetching real-time quota information
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-/// Real-time quota information from OpenAI API
+/// Real-time quota information from `OpenAI` API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealTimeQuota {
     pub account_id: String,
@@ -38,13 +39,13 @@ impl RealTimeQuota {
     }
 }
 
-/// Fetch real-time quota from OpenAI API
+/// Fetch real-time quota from `OpenAI` API
 pub async fn fetch_quota(api_key: &str) -> Result<RealTimeQuota> {
     let client = reqwest::Client::new();
 
     let response = client
         .get("https://api.openai.com/v1/dashboard/billing/subscription")
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {api_key}"))
         .send()
         .await
         .context("Failed to connect to OpenAI API")?;
@@ -52,7 +53,7 @@ pub async fn fetch_quota(api_key: &str) -> Result<RealTimeQuota> {
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
-        anyhow::bail!("OpenAI API error ({}): {}", status, text);
+        anyhow::bail!("OpenAI API error ({status}): {text}");
     }
 
     let data: serde_json::Value = response
@@ -63,25 +64,27 @@ pub async fn fetch_quota(api_key: &str) -> Result<RealTimeQuota> {
     // Parse the response
     let account_id = data
         .get("account_id")
-        .and_then(|v| v.as_str())
+        .and_then(Value::as_str)
         .unwrap_or("unknown")
         .to_string();
 
     let plan = data
         .get("plan")
-        .and_then(|v| v.as_str())
+        .and_then(Value::as_str)
         .unwrap_or("unknown")
         .to_string();
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let quota_limit = data
         .get("hard_limit_usd")
-        .and_then(|v| v.as_f64())
-        .map(|v| (v * 100.0) as u64) // Convert to cents for integer storage
-        .unwrap_or(0);
+        .and_then(Value::as_f64)
+        .map(|v| (v * 100.0) as u64)
+        .map_or(0, std::convert::identity);
 
     // Fetch usage data
-    let usage = fetch_usage(api_key).await.unwrap_or(0);
+    let usage = fetch_usage(api_key).await.map_or(0, std::convert::identity);
     let remaining = quota_limit.saturating_sub(usage);
+    #[allow(clippy::cast_precision_loss)]
     let percent_used = if quota_limit > 0 {
         (usage as f64 / quota_limit as f64) * 100.0
     } else {
@@ -91,8 +94,8 @@ pub async fn fetch_quota(api_key: &str) -> Result<RealTimeQuota> {
     let reset_date = data
         .get("reset_date")
         .or_else(|| data.get("billing_cycle_anchor"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
+        .and_then(Value::as_str)
+        .map(std::string::ToString::to_string);
 
     Ok(RealTimeQuota {
         account_id,
@@ -105,7 +108,7 @@ pub async fn fetch_quota(api_key: &str) -> Result<RealTimeQuota> {
     })
 }
 
-/// Fetch current month's usage from OpenAI API
+/// Fetch current month's usage from `OpenAI` API
 async fn fetch_usage(api_key: &str) -> Result<u64> {
     use chrono::{Datelike, Utc};
 
@@ -115,13 +118,12 @@ async fn fetch_usage(api_key: &str) -> Result<u64> {
 
     let client = reqwest::Client::new();
     let url = format!(
-        "https://api.openai.com/v1/dashboard/billing/usage?start_date={}&end_date={}",
-        start_of_month, today
+        "https://api.openai.com/v1/dashboard/billing/usage?start_date={start_of_month}&end_date={today}"
     );
 
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {api_key}"))
         .send()
         .await
         .context("Failed to fetch usage data")?;
@@ -129,7 +131,7 @@ async fn fetch_usage(api_key: &str) -> Result<u64> {
     if !response.status().is_success() {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
-        anyhow::bail!("OpenAI API error ({}): {}", status, text);
+        anyhow::bail!("OpenAI API error ({status}): {text}");
     }
 
     let data: serde_json::Value = response
@@ -137,11 +139,12 @@ async fn fetch_usage(api_key: &str) -> Result<u64> {
         .await
         .context("Failed to parse usage response")?;
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let total_usage = data
         .get("total_usage")
-        .and_then(|v| v.as_f64())
+        .and_then(Value::as_f64)
         .map(|v| (v * 100.0) as u64) // Convert to cents
-        .unwrap_or(0);
+        .map_or(0, std::convert::identity);
 
     Ok(total_usage)
 }
@@ -153,8 +156,8 @@ pub fn extract_api_key(auth_json: &serde_json::Value) -> Option<String> {
         .get("api_key")
         .or_else(|| auth_json.get("key"))
         .or_else(|| auth_json.get("access_token"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
+        .and_then(Value::as_str)
+        .map(std::string::ToString::to_string)
 }
 
 #[cfg(test)]

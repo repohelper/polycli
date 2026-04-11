@@ -1,7 +1,8 @@
 #![allow(deprecated)]
 
 use crate::utils::config::Config;
-use anyhow::Result;
+use crate::utils::validation::ProfileName;
+use anyhow::{Context as _, Result};
 use colored::Colorize as _;
 
 /// Escape a value for safe inclusion in a bash/zsh/fish single-quoted string.
@@ -13,17 +14,17 @@ use colored::Colorize as _;
 /// spaces, etc.) because none of them are interpreted inside single quotes.
 fn shell_escape_bash(value: &str) -> String {
     let escaped = value.replace('\'', r"'\''");
-    format!("'{}'", escaped)
+    format!("'{escaped}'")
 }
 
-/// Escape a value for safe inclusion in a PowerShell single-quoted string.
+/// Escape a value for safe inclusion in a `PowerShell` single-quoted string.
 ///
-/// PowerShell single-quoted strings interpret nothing except `'`, which is
+/// `PowerShell` single-quoted strings interpret nothing except `'`, which is
 /// escaped by doubling it (`''`).  This neutralises `$`, backticks, `()`,
-/// spaces, and everything else that PowerShell would otherwise expand.
+/// spaces, and everything else that `PowerShell` would otherwise expand.
 fn shell_escape_powershell(value: &str) -> String {
     let escaped = value.replace('\'', "''");
-    format!("'{}'", escaped)
+    format!("'{escaped}'")
 }
 
 /// Escape a value for safe use as the RHS of a CMD `set "VAR=value"` command.
@@ -53,20 +54,62 @@ fn shell_escape_cmd(value: &str) -> String {
 
 /// Generate shell commands to set up environment for using a specific profile
 /// This allows using different profiles in different terminals concurrently
-pub async fn execute(
+fn print_shell_env(shell: &str, profile: &str, profile_dir: &str) {
+    match shell {
+        "fish" => {
+            println!("set -x CODEXCTL {};", shell_escape_bash(profile));
+            println!("set -x CODEXCTL_DIR {};", shell_escape_bash(profile_dir));
+            println!("# Use with: codex");
+            println!(
+                "# Or run: eval (poly env {} --unset) to clear",
+                shell_escape_bash(profile)
+            );
+        }
+        "powershell" | "pwsh" => {
+            println!("$env:CODEXCTL = {};", shell_escape_powershell(profile));
+            println!(
+                "$env:CODEXCTL_DIR = {};",
+                shell_escape_powershell(profile_dir)
+            );
+            println!("# Use with: codex");
+            println!(
+                "# Or run: poly env {} --unset | Invoke-Expression to clear",
+                shell_escape_powershell(profile)
+            );
+        }
+        "cmd" | "batch" => {
+            println!("set \"CODEXCTL={}\"", shell_escape_cmd(profile));
+            println!("set \"CODEXCTL_DIR={}\"", shell_escape_cmd(profile_dir));
+            println!("REM Use with: codex");
+        }
+        _ => {
+            println!("export CODEXCTL={};", shell_escape_bash(profile));
+            println!("export CODEXCTL_DIR={};", shell_escape_bash(profile_dir));
+            println!("# Use with: codex");
+            println!(
+                "# Or run: eval $(poly env {} --unset) to clear",
+                shell_escape_bash(profile)
+            );
+        }
+    }
+}
+
+/// Generate shell commands to set up environment for using a specific profile
+/// This allows using different profiles in different terminals concurrently
+#[allow(clippy::needless_pass_by_value)]
+pub fn execute(
     config: Config,
     profile: String,
     shell: String,
     unset: bool,
     quiet: bool,
 ) -> Result<()> {
-    let profile_dir = config.profile_path(&profile);
+    let profile_name = ProfileName::try_from(profile.as_str())
+        .with_context(|| format!("Invalid profile name '{profile}'"))?;
+    let profile_dir = config.profile_path_validated(&profile_name)?;
 
     if !profile_dir.exists() {
-        anyhow::bail!(
-            "Profile '{}' not found. Use 'poly list' to see available profiles.",
-            profile
-        );
+        anyhow::bail!("Profile '{profile}' not found. Use 'poly list' to see available profiles.");
     }
 
     if unset {
@@ -92,62 +135,14 @@ pub async fn execute(
 
         if !quiet {
             eprintln!(
-                "{} Environment cleared. Using default Codex auth.",
+                "{} Environment cleared. Using default `Codex` auth.",
                 "✓".green()
             );
         }
         return Ok(());
     }
 
-    let profile_dir_str = profile_dir.to_string_lossy();
-
-    match shell.as_str() {
-        "fish" => {
-            println!("set -x CODEXCTL {};", shell_escape_bash(&profile));
-            println!(
-                "set -x CODEXCTL_DIR {};",
-                shell_escape_bash(&profile_dir_str)
-            );
-            println!("# Use with: codex");
-            println!(
-                "# Or run: eval (poly env {} --unset) to clear",
-                shell_escape_bash(&profile)
-            );
-        }
-        "powershell" | "pwsh" => {
-            println!("$env:CODEXCTL = {};", shell_escape_powershell(&profile));
-            println!(
-                "$env:CODEXCTL_DIR = {};",
-                shell_escape_powershell(&profile_dir_str)
-            );
-            println!("# Use with: codex");
-            println!(
-                "# Or run: poly env {} --unset | Invoke-Expression to clear",
-                shell_escape_powershell(&profile)
-            );
-        }
-        "cmd" | "batch" => {
-            println!("set \"CODEXCTL={}\"", shell_escape_cmd(&profile));
-            println!(
-                "set \"CODEXCTL_DIR={}\"",
-                shell_escape_cmd(&profile_dir_str)
-            );
-            println!("REM Use with: codex");
-        }
-        _ => {
-            // bash, zsh, etc.
-            println!("export CODEXCTL={};", shell_escape_bash(&profile));
-            println!(
-                "export CODEXCTL_DIR={};",
-                shell_escape_bash(&profile_dir_str)
-            );
-            println!("# Use with: codex");
-            println!(
-                "# Or run: eval $(poly env {} --unset) to clear",
-                shell_escape_bash(&profile)
-            );
-        }
-    }
+    print_shell_env(&shell, &profile, &profile_dir.to_string_lossy());
 
     if !quiet {
         eprintln!();
@@ -160,13 +155,13 @@ pub async fn execute(
         eprintln!("{} This won't affect other terminals!", "ℹ".blue());
         eprintln!();
         eprintln!("Example usage:");
-        eprintln!("  {}", format!("eval $(poly env {})", profile).yellow());
+        eprintln!("  {}", format!("eval $(poly env {profile})").yellow());
         eprintln!("  {}  # Uses '{}' profile", "codex".yellow(), profile);
         eprintln!();
         eprintln!("To switch back to default:");
         eprintln!(
             "  {}",
-            format!("eval $(poly env {} --unset)", profile).yellow()
+            format!("eval $(poly env {profile} --unset)").yellow()
         );
     }
 

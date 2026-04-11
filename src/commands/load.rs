@@ -51,6 +51,7 @@ pub async fn execute(
 }
 
 /// Internal load implementation
+#[allow(clippy::too_many_lines)]
 async fn do_load(
     config: Config,
     name: String,
@@ -65,10 +66,7 @@ async fn do_load(
     let codex_dir = config.codex_dir();
 
     if !profile_dir.exists() {
-        anyhow::bail!(
-            "Profile '{}' not found. Use 'poly list' to see available profiles.",
-            name
-        );
+        anyhow::bail!("Profile '{name}' not found. Use 'poly list' to see available profiles.");
     }
 
     // Load profile metadata
@@ -96,7 +94,11 @@ async fn do_load(
                 "Profile directory".dimmed(),
                 profile_dir.display()
             );
-            println!("  {}: {}", "Codex directory".dimmed(), codex_dir.display());
+            println!(
+                "  {}: {}",
+                "`Codex` directory".dimmed(),
+                codex_dir.display()
+            );
         }
         return Ok(());
     }
@@ -161,21 +163,21 @@ async fn do_load(
     // Handle encrypted profiles
     let secret_passphrase = passphrase.filter(|p| !p.is_empty());
 
-    // If profile is encrypted, decrypt auth.json to a temp location for staging
+    // If profile is encrypted, decrypt auth.json to the staging directory
     let auth_path = profile_dir.join("auth.json");
-    let temp_auth_path = profile_dir.join(".auth.json.tmp");
-    let mut cleanup_temp = false;
-
-    if auth_path.exists() {
+    let decrypted_auth_staging = if auth_path.exists() {
         let auth_content = tokio::fs::read(&auth_path).await?;
         if crate::utils::crypto::is_encrypted(&auth_content) {
             let decrypted =
                 crate::utils::crypto::decrypt(&auth_content, secret_passphrase.as_ref())
                     .context("Failed to decrypt auth.json - wrong passphrase?")?;
-            tokio::fs::write(&temp_auth_path, decrypted).await?;
-            cleanup_temp = true;
+            Some(decrypted)
+        } else {
+            None
         }
-    }
+    } else {
+        None
+    };
 
     // Atomically switch to the new profile using a staged transaction.
     let files_to_copy = get_critical_files();
@@ -184,14 +186,18 @@ async fn do_load(
         ProfileTransaction::new(codex_dir).context("Failed to initialise profile transaction")?;
     txn.stage_profile(&profile_dir, files_to_copy)
         .context("Failed to stage profile files")?;
+
+    // Write decrypted auth.json into the staging dir (overwrites encrypted version)
+    if let Some(ref decrypted) = decrypted_auth_staging {
+        let staging_auth_path = txn.staging_dir().join("auth.json");
+        tokio::fs::write(&staging_auth_path, decrypted)
+            .await
+            .context("Failed to write decrypted auth.json to staging")?;
+    }
+
     txn.commit()
         .context("Failed to atomically commit profile")?;
     txn.cleanup_original()?;
-
-    // Clean up temp decrypted file if created
-    if cleanup_temp {
-        let _ = tokio::fs::remove_file(&temp_auth_path).await;
-    }
 
     if let Some(bar) = pb {
         bar.finish_and_clear();
@@ -228,6 +234,7 @@ async fn do_load(
 }
 
 /// Auto-switch to the best available profile based on quota/usage
+#[allow(clippy::too_many_lines)]
 async fn auto_switch(
     config: Config,
     force: bool,
@@ -271,11 +278,11 @@ async fn auto_switch(
             .as_ref()
             .and_then(|c| serde_json::from_str(c).ok());
 
-        if let Some(auth) = auth_json {
-            if let Ok(usage) = extract_usage_info(&auth) {
-                let score = calculate_profile_score(&usage);
-                profiles_with_usage.push((name, usage, score, path));
-            }
+        if let Some(auth) = auth_json
+            && let Ok(usage) = extract_usage_info(&auth)
+        {
+            let score = calculate_profile_score(&usage);
+            profiles_with_usage.push((name, usage, score, path));
         }
     }
 
@@ -307,8 +314,7 @@ async fn auto_switch(
                     .subscription_end
                     .as_ref()
                     .and_then(|end| calculate_days_remaining(end).ok())
-                    .map(|d| d.to_string())
-                    .unwrap_or_else(|| "N/A".to_string())
+                    .map_or_else(|| "N/A".to_string(), |d| d.to_string())
             );
         }
         println!();
@@ -324,18 +330,18 @@ async fn auto_switch(
     }
 
     let codex_dir = config.codex_dir();
-    if let Some(current_email) = read_email_from_codex_dir(codex_dir).await {
-        if current_email == best_usage.email {
-            if !quiet {
-                println!(
-                    "{} Already using the best profile: {} ({})",
-                    "✓".green(),
-                    best_name.cyan(),
-                    best_usage.email.green()
-                );
-            }
-            return Ok(());
+    if let Some(current_email) = read_email_from_codex_dir(codex_dir).await
+        && current_email == best_usage.email
+    {
+        if !quiet {
+            println!(
+                "{} Already using the best profile: {} ({})",
+                "✓".green(),
+                best_name.cyan(),
+                best_usage.email.green()
+            );
         }
+        return Ok(());
     }
 
     if !quiet {
@@ -359,20 +365,20 @@ async fn auto_switch(
 }
 
 /// Calculate a score for profile priority (higher = better)
+#[allow(clippy::cast_possible_truncation)]
 fn calculate_profile_score(usage: &crate::utils::auth::UsageInfo) -> i32 {
     let mut score = 0;
 
     score += match usage.plan_type.as_str() {
         "enterprise" => 100,
         "team" => 50,
-        "personal" => 0,
         _ => 0,
     };
 
-    if let Some(end) = &usage.subscription_end {
-        if let Ok(days) = calculate_days_remaining(end) {
-            score += days.min(30) as i32;
-        }
+    if let Some(end) = &usage.subscription_end
+        && let Ok(days) = calculate_days_remaining(end)
+    {
+        score += days.min(30) as i32;
     }
 
     score
@@ -382,7 +388,7 @@ fn calculate_days_remaining(iso_date: &str) -> anyhow::Result<i64> {
     use chrono::{DateTime, Utc};
 
     let end_date = DateTime::parse_from_rfc3339(iso_date)
-        .map_err(|e| anyhow::anyhow!("Failed to parse date: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?;
 
     let now = Utc::now();
     let duration = end_date.with_timezone(&Utc) - now;
@@ -393,41 +399,38 @@ fn calculate_days_remaining(iso_date: &str) -> anyhow::Result<i64> {
 /// Get the name of the currently loaded profile
 async fn get_current_profile_name(config: &Config) -> Option<String> {
     let marker = config.profiles_dir().join(".current_profile");
-    if marker.exists() {
-        if let Ok(content) = tokio::fs::read_to_string(&marker).await {
-            let name = content.trim().to_string();
-            if !name.is_empty() {
-                return Some(name);
-            }
+    if marker.exists()
+        && let Ok(content) = tokio::fs::read_to_string(&marker).await
+    {
+        let name = content.trim().to_string();
+        if !name.is_empty() {
+            return Some(name);
         }
     }
 
     // Fallback: try to identify from email in auth.json
     let codex_dir = config.codex_dir();
-    if let Some(email) = read_email_from_codex_dir(codex_dir).await {
-        if let Ok(mut entries) = tokio::fs::read_dir(config.profiles_dir()).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let path = entry.path();
-                if !path.is_dir()
-                    || path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().starts_with('.'))
-                        .unwrap_or(true)
-                {
-                    continue;
-                }
+    if let Some(email) = read_email_from_codex_dir(codex_dir).await
+        && let Ok(mut entries) = tokio::fs::read_dir(config.profiles_dir()).await
+    {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if !path.is_dir()
+                || path
+                    .file_name()
+                    .is_none_or(|n| n.to_string_lossy().starts_with('.'))
+            {
+                continue;
+            }
 
-                let name = path.file_name()?.to_string_lossy().to_string();
-                let meta_path = path.join("profile.json");
-                if let Ok(content) = tokio::fs::read_to_string(&meta_path).await {
-                    if let Ok(meta) =
-                        serde_json::from_str::<crate::utils::profile::ProfileMeta>(&content)
-                    {
-                        if meta.email.as_ref() == Some(&email) {
-                            return Some(name);
-                        }
-                    }
-                }
+            let name = path.file_name()?.to_string_lossy().to_string();
+            let meta_path = path.join("profile.json");
+            if let Ok(content) = tokio::fs::read_to_string(&meta_path).await
+                && let Ok(meta) =
+                    serde_json::from_str::<crate::utils::profile::ProfileMeta>(&content)
+                && meta.email.as_ref() == Some(&email)
+            {
+                return Some(name);
             }
         }
     }

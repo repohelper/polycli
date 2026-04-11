@@ -34,7 +34,7 @@ pub async fn execute(config: Config, detailed: bool, quiet: bool) -> Result<()> 
             .to_string();
 
         // Skip internal directories
-        if name == "backups" {
+        if name == "backups" || name.starts_with('.') {
             continue;
         }
 
@@ -83,10 +83,10 @@ pub async fn execute(config: Config, detailed: bool, quiet: bool) -> Result<()> 
                 .as_ref()
                 .and_then(|m| m.email.clone())
                 .unwrap_or_else(|| "-".to_string());
-            let updated = meta
-                .as_ref()
-                .map(|m| m.updated_at.format("%Y-%m-%d %H:%M").to_string())
-                .unwrap_or_else(|| "-".to_string());
+            let updated = meta.as_ref().map_or_else(
+                || "-".to_string(),
+                |m| m.updated_at.format("%Y-%m-%d %H:%M").to_string(),
+            );
             let desc = meta
                 .as_ref()
                 .and_then(|m| m.description.clone())

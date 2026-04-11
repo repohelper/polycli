@@ -18,7 +18,7 @@ pub async fn execute(
     let codex_dir = config.codex_dir();
 
     if !profile_dir.exists() {
-        anyhow::bail!("Profile '{}' not found", profile);
+        anyhow::bail!("Profile '{profile}' not found");
     }
 
     if command.is_empty() {
@@ -58,18 +58,18 @@ pub async fn execute(
         .stdin(Stdio::inherit())
         .status()
         .await
-        .with_context(|| format!("Failed to execute command: {}", cmd))?;
+        .with_context(|| format!("Failed to execute command: {cmd}"))?;
 
     // Atomically restore the original profile.
     // rollback() renames the saved original back into place — no partial state.
-    if let Err(e) = txn.rollback() {
-        if !quiet {
-            eprintln!(
-                "{} Warning: Could not fully restore original profile: {}",
-                "⚠".yellow(),
-                e
-            );
-        }
+    if let Err(e) = txn.rollback()
+        && !quiet
+    {
+        eprintln!(
+            "{} Warning: Could not fully restore original profile: {}",
+            "⚠".yellow(),
+            e
+        );
     }
 
     if !quiet {

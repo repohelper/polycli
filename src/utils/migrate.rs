@@ -38,10 +38,11 @@ pub async fn auto_migrate(config: &Config) -> Result<()> {
 
     // Read current migration state
     let mut meta = if meta_path.exists() {
-        match tokio::fs::read_to_string(&meta_path).await {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-            Err(_) => MigrationMeta::default(),
-        }
+        tokio::fs::read_to_string(&meta_path)
+            .await
+            .ok()
+            .and_then(|content| serde_json::from_str(&content).ok())
+            .unwrap_or_default()
     } else {
         MigrationMeta::default()
     };
@@ -109,18 +110,15 @@ async fn migrate_to_v0_4_0(config: &Config, meta: &mut MigrationMeta) -> Result<
 
         // Check and update profile.json
         let profile_json_path = path.join("profile.json");
-        if profile_json_path.exists() {
-            if let Ok(content) = tokio::fs::read_to_string(&profile_json_path).await {
-                if let Ok(mut profile_meta) = serde_json::from_str::<serde_json::Value>(&content) {
-                    // Add encrypted field if missing
-                    if profile_meta.get("encrypted").is_none() {
-                        profile_meta["encrypted"] = serde_json::json!(false);
+        if profile_json_path.exists()
+            && let Ok(content) = tokio::fs::read_to_string(&profile_json_path).await
+            && let Ok(mut profile_meta) = serde_json::from_str::<serde_json::Value>(&content)
+            && profile_meta.get("encrypted").is_none()
+        {
+            profile_meta["encrypted"] = serde_json::json!(false);
 
-                        if let Ok(updated) = serde_json::to_string_pretty(&profile_meta) {
-                            let _ = tokio::fs::write(&profile_json_path, updated).await;
-                        }
-                    }
-                }
+            if let Ok(updated) = serde_json::to_string_pretty(&profile_meta) {
+                let _ = tokio::fs::write(&profile_json_path, updated).await;
             }
         }
     }
@@ -137,25 +135,6 @@ async fn migrate_to_v0_4_0(config: &Config, meta: &mut MigrationMeta) -> Result<
     }
 
     meta.migrations_applied.push("v0.4.0".to_string());
-    Ok(())
-}
-
-/// Force a full migration check and repair
-#[allow(dead_code)]
-pub async fn repair_profiles(config: &Config) -> Result<()> {
-    tracing::info!("Running profile repair...");
-
-    let profiles_dir = config.profiles_dir();
-    if !profiles_dir.exists() {
-        tokio::fs::create_dir_all(profiles_dir).await?;
-    }
-
-    // Reset migration state and re-run all migrations
-    let meta_path = profiles_dir.join(".migration_meta.json");
-    let _ = tokio::fs::remove_file(&meta_path).await;
-
-    auto_migrate(config).await?;
-
     Ok(())
 }
 

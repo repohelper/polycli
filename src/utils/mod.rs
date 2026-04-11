@@ -5,7 +5,6 @@ pub mod crypto;
 pub mod files;
 pub mod migrate;
 pub mod profile;
-pub mod settings;
 pub mod transaction;
 pub mod validation;
 
