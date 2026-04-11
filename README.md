@@ -1,21 +1,31 @@
-# CodexCTL
+# Codex Controller (`codexctl`)
 
 [![CI](https://github.com/repohelper/codexctl/actions/workflows/ci.yml/badge.svg)](https://github.com/repohelper/codexctl/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust Version](https://img.shields.io/badge/rust-1.94%2B-blue.svg)](https://www.rust-lang.org)
 
-> **Codex CLI Profile Manager** - Manage multiple OpenAI Codex CLI accounts
+> **Codex Controller** - Full control plane for Codex CLI
 
-**Version**: 0.4.0 | **Author**: [Bhanu Korthiwada](https://github.com/BhanuKorthiwada) | **Status**: ✅ Stable Release
+**Prerequisite**: Requires [@openai/codex](https://www.npmjs.com/package/@openai/codex) to be installed first.
+
+**Version**: 0.6.3 | **Author**: [Bhanu Korthiwada](https://github.com/BhanuKorthiwada)
 
 🔗 **Website**: [codexctl on GitHub](https://github.com/repohelper/codexctl)  
 📖 **Documentation**: See README for usage
 
 ---
 
-## Why CodexCTL?
+## Why Codex Controller?
 
-If you work with multiple OpenAI Codex CLI accounts (work, personal, side projects), CodexCTL lets you:
+Codex Controller starts from a practical limitation in Codex CLI today: there is no native first-class multi-profile workflow. This repo starts with a full end-to-end control plane for profile management, usage visibility, switching, and concurrent terminal usage.
+
+Use it when you need to:
+
+- 🔐 **Multi-account management** - Switch between work/personal/dev accounts instantly
+- 🤖 **Automation** - Run Codex in CI/CD with specific credentials
+- 📊 **Usage monitoring** - Track quota across teams
+- 🌳 **Concurrent sessions** - Use multiple accounts in parallel
+- 🔄 **Profile-based workflows** - Environment-specific configurations
 
 - 🔐 **Securely store** multiple Codex CLI profiles with optional encryption
 - ⚡ **Switch instantly** between accounts without re-authenticating
@@ -27,31 +37,43 @@ If you work with multiple OpenAI Codex CLI accounts (work, personal, side projec
 
 ## Features
 
-### Core
-- 🔐 **Optional Encryption** - age-based encryption for sensitive auth data
-- 🚀 **Fast Switching** - Switch accounts in < 1 second
-- 🔄 **Quick-Switch** - Toggle between current and previous profile with `cdx -`
-- 🗂️ **Profile Management** - Save, load, list, delete, backup profiles
+### Multi-Account Management
+- 🔐 **Secure Profiles** - Store multiple Codex credentials with optional encryption
+- ⚡ **Instant Switching** - Switch accounts in < 1 second
+- 🔄 **Quick Toggle** - Toggle between current and previous with `codexctl load -`
+- 🗂️ **Full CRUD** - Save, load, list, delete, backup profiles
 
-### Advanced
-- 🤖 **Auto-Switcher** - Automatically pick the best profile based on quota availability
-- 📊 **Real-Time Quota** - Live usage data from OpenAI API
-- ✅ **Verify Command** - Validate all profiles' authentication status
-- 🌳 **Concurrent Usage** - Use multiple profiles simultaneously via `env` command
-- 📦 **Import/Export** - Transfer profiles between machines securely
+### Automation & Control
+- 🤖 **Auto-Switcher** - Automatically pick best profile based on quota
+- 📊 **Usage Monitoring** - Real-time quota and billing data
+- ✅ **Verify** - Validate all profiles' authentication status
+- 🌳 **Concurrent Sessions** - Use multiple accounts in parallel
+- 🏃 **CI/CD Integration** - Run with specific credentials in pipelines
 
 ### Developer Experience
-- 🖥️ **Cross-Platform** - macOS, Linux, Windows support
+- 🖥️ **Cross-Platform** - macOS, Linux, Windows (WSL2)
 - 🔧 **Shell Completions** - Bash, Zsh, Fish, PowerShell
-- 🧪 **Zero Dependencies** - Single binary, no runtime requirements
-- 🐳 **Docker Support** - Multi-arch images available
-- 🧬 **Auto-Migration** - Seamless upgrades between versions
+- 🧪 **Zero Runtime** - Single binary, no Node.js required
+- 🐳 **Docker** - Multi-arch images
+- 📦 **Import/Export** - Transfer profiles between machines
 
 ---
 
 ## Quick Start
 
-### Install
+### Prerequisites
+
+First, install Codex CLI:
+
+```bash
+# Install Codex CLI (required)
+npm install -g @openai/codex
+
+# Verify installation
+codex --version
+```
+
+### Install `codexctl`
 
 ```bash
 # Via cargo
@@ -71,20 +93,20 @@ brew install repohelper/tap/codexctl
 
 ```bash
 # Save your current Codex CLI profile
-cdx save work
+codexctl save work
 
 # Create another profile
 # (switch accounts in Codex CLI, then:)
-cdx save personal
+codexctl save personal
 
 # List all profiles
-cdx list
+codexctl list
 
 # Switch to a profile
-cdx load work
+codexctl load work
 
 # Quick-switch to previous profile
-cdx load -
+codexctl load -
 ```
 
 ---
@@ -92,69 +114,83 @@ cdx load -
 ## Commands
 
 ```
-cdx save <name>              Save current Codex auth as a profile
-cdx load <name>              Load a saved profile and switch to it
-cdx list                     List all saved profiles
-cdx delete <name>            Delete a saved profile
-cdx status                   Show current profile status
-cdx usage                    Show usage limits and subscription info
-cdx verify                   Verify all profiles' authentication status
-cdx backup                   Create a backup of current profile
-cdx run <name> -- <cmd>      Run a command with a specific profile
-cdx env <name>               Export shell commands for concurrent usage
-cdx diff <name1> <name2>     Compare/diff two profiles
-cdx switch                   Switch to a profile interactively (fzf)
-cdx history                  View command history
-cdx doctor                   Run health check on profiles
-cdx completions              Generate shell completions
-cdx import <file>            Import a profile from another machine
-cdx export <name>            Export a profile for transfer
-cdx setup                    Interactive setup wizard
+codexctl save <name>              Save current Codex auth as a profile
+codexctl load <name>              Load a saved profile and switch to it
+codexctl list                     List all saved profiles
+codexctl delete <name>            Delete a saved profile
+codexctl status                   Show current profile status
+codexctl usage                    Show usage limits and subscription info
+codexctl verify                   Verify all profiles' authentication status
+codexctl backup                   Create a backup of current profile
+codexctl run --profile <name> -- <cmd>
+                                  Run a command with a specific profile
+codexctl env <name>               Export shell commands for concurrent usage
+codexctl diff <name1> <name2>     Compare/diff two profiles
+codexctl switch                   Switch to a profile interactively (fzf)
+codexctl history                  View command history
+codexctl doctor                   Run health check on profiles
+codexctl completions              Generate shell completions
+codexctl import <name> <b64>      Import a profile from another machine
+codexctl export <name>            Export a profile for transfer
+codexctl setup                    Interactive setup wizard
 ```
 
 ---
 
-## Encryption (Optional)
+## Encryption
 
 ```bash
 # Save with encryption
-cdx save work --passphrase "my-secret"
+codexctl save work --passphrase "my-secret"
 
 # Or use environment variable
 export CODEXCTL_PASSPHRASE="my-secret"
-cdx save work
+codexctl save work
 
 # Load encrypted profile
-cdx load work --passphrase "my-secret"
+codexctl load work --passphrase "my-secret"
 ```
 
 ---
 
-## Auto-Switcher
+## Usage And Auto-Switching
 
-Let CodexCTL pick the best profile automatically:
+Inspect usage directly or let the controller pick the best available profile:
 
 ```bash
-# Switch to profile with most quota available
-cdx load auto
+# Show current profile usage details
+codexctl usage
 
-# Configure auto-switch preferences
-cdx config set auto_switch.threshold 80
-cdx config set auto_switch.prefer work,personal
+# Compare usage across all saved profiles
+codexctl usage --all
+
+# Switch to the profile with the best remaining quota
+codexctl load auto
 ```
 
 ---
 
-## Shell Integration
+## Concurrent Usage
 
-Add to your `.bashrc`/`.zshrc`:
+Run different Codex identities in separate terminals:
 
 ```bash
-# Enable completions
-source <(cdx completions bash)
+# Print shell exports for a profile
+codexctl env work
 
-# Optional: Auto-switch based on directory (like direnv)
-eval "$(cdx init --shell zsh)"
+# Bash/Zsh example
+eval "$(codexctl env work)"
+
+# Run one command against a specific profile and restore after
+codexctl run --profile work -- codex --version
+```
+
+---
+
+## Shell Completions
+
+```bash
+source <(codexctl completions bash)
 ```
 
 ---
@@ -190,19 +226,6 @@ default_passphrase = false  # Always prompt for passphrase
 
 ---
 
-## Comparison
-
-| Feature | CodexCTL | [codex-profiles](https://github.com/midhunmonachan/codex-profiles) |
-|---------|---------|-------------------------------------------------------------------|
-| Encryption | ✅ | ❌ |
-| Auto-Switcher | ✅ | ❌ |
-| Real-Time Quota | ✅ | ❌ |
-| Shell Completions | ✅ | ❌ |
-| Docker Support | ✅ | ❌ |
-| Cross-Platform | ✅ | ✅ |
-
----
-
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
@@ -213,4 +236,4 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Made with ❤️ by [Bhanu Korthiwada](https://github.com/BhanuKorthiwada)**
+Built by [Bhanu Korthiwada](https://github.com/BhanuKorthiwada)

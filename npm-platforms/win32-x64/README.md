@@ -1,6 +1,6 @@
-# @codexctl/linux-x64
+# @codexctl/win32-x64
 
-This is the Linux x86_64 binary for codexctl, a CLI tool for managing multiple AI CLI accounts.
+This is the Windows x86_64 binary for `codexctl`, the Codex Controller CLI.
 
 ## Installation
 
@@ -8,5 +8,5 @@ This package is automatically installed as an optional dependency of the main `c
 
 For direct installation:
 ```bash
-npm install @codexctl/linux-x64
+npm install @codexctl/win32-x64
 ```

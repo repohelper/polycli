@@ -1,6 +1,6 @@
 {
   "name": "@codexctl/darwin-arm64",
-  "version": "0.5.16",
+  "version": "0.6.3",
   "description": "The macOS ARM64 binary for codexctl",
   "repository": {
     "type": "git",

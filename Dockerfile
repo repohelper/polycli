@@ -1,4 +1,4 @@
-# CodexCTL - Docker Image
+# Codex Controller - Docker Image
 # Multi-stage build for minimal size
 
 # Stage 1: Build
@@ -25,8 +25,8 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 
 LABEL maintainer="Bhanu Korthiwada"
-LABEL description="CodexCTL - Codex CLI Profile Manager"
-LABEL version="0.2.0"
+LABEL description="Codex Controller for Codex CLI profile management"
+LABEL version="0.6.3"
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \

@@ -7,7 +7,9 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
     let profiles_dir = config.profiles_dir();
 
     if !profiles_dir.exists() {
-        anyhow::bail!("No profiles directory found. Create a profile first with: poly save <name>");
+        anyhow::bail!(
+            "No profiles directory found. Create a profile first with: codexctl save <name>"
+        );
     }
 
     // Collect profiles
@@ -49,7 +51,7 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
     }
 
     if profiles.is_empty() {
-        anyhow::bail!("No profiles found. Create one with: poly save <name>");
+        anyhow::bail!("No profiles found. Create one with: codexctl save <name>");
     }
 
     // Sort profiles

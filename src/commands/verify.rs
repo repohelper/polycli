@@ -11,7 +11,9 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
     let profiles_dir = config.profiles_dir();
 
     if !profiles_dir.exists() {
-        anyhow::bail!("No profiles directory found. Create profiles first with: poly save <name>");
+        anyhow::bail!(
+            "No profiles directory found. Create profiles first with: codexctl save <name>"
+        );
     }
 
     let mut entries = tokio::fs::read_dir(profiles_dir).await?;

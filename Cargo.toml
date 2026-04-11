@@ -1,13 +1,13 @@
 [package]
 name = "codexctl"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 authors = ["Bhanu Korthiwada"]
-description = "Codex CLI Profile Manager - Manage multiple OpenAI Codex CLI accounts"
+description = "Codex Controller - Full control plane for Codex CLI"
 license = "MIT"
 repository = "https://github.com/repohelper/codexctl"
 readme = "README.md"
-keywords = ["codex", "openai", "cli", "profile", "manager", "oauth"]
+keywords = ["codex", "controller", "cli", "automation", "openai"]
 categories = ["command-line-utilities", "development-tools"]
 rust-version = "1.94.1"
 
@@ -24,7 +24,7 @@ clap_complete = "4.6"
 tokio = { version = "1.51", features = ["full", "tracing"] }
 
 # Serialization
-toml = "0.8"
+toml = "1.1.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -62,7 +62,7 @@ semver = { version = "1.0", features = ["serde"] }
 aes-gcm = { version = "0.11.0-rc.3", optional = true }
 
 # Random number generation (used by transaction module)
-rand = "0.9"
+rand = "0.10.1"
 
 # Utilities
 which = "8.0"
@@ -91,7 +91,7 @@ assert_cmd = "2.2"
 predicates = "3.1"
 tempfile = "3.27"
 serial_test = "3.4"
-criterion = { version = "0.5", features = ["async_tokio"] }
+criterion = { version = "0.8", features = ["async_tokio"] }
 mockall = "0.14"
 
 [profile.release]

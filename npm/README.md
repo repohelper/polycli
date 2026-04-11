@@ -1,6 +1,6 @@
-# CodexCTL
+# Codex Controller (`codexctl`)
 
-Codex CLI Profile Manager - Manage multiple AI CLI accounts (Codex, Claude, Gemini, OpenAI)
+Codex Controller for Codex CLI. The first end-to-end slice is profile management, switching, usage visibility, and concurrent terminal workflows.
 
 ## Installation
 
@@ -31,7 +31,7 @@ codexctl list
 
 - Optional encryption for sensitive auth data
 - Fast profile switching
-- Multiple AI CLI support (Codex, Claude, Gemini, OpenAI)
+- Usage visibility across saved Codex profiles
 - Export to use profiles concurrently in different terminals
 
 ## Binary Package

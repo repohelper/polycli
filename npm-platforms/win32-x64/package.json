@@ -1,6 +1,6 @@
 {
   "name": "@codexctl/win32-x64",
-  "version": "0.5.16",
+  "version": "0.6.3",
   "description": "The Windows x86_64 binary for codexctl",
   "repository": {
     "type": "git",

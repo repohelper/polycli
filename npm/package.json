@@ -1,12 +1,12 @@
 {
   "name": "codexctl",
-  "version": "0.5.22",
-  "description": "Codex CLI Profile Manager - Manage multiple AI CLI accounts",
+  "version": "0.6.3",
+  "description": "Codex Controller - Full control plane for Codex CLI",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/repohelper/codexctl.git"
   },
-  "keywords": ["ai", "cli", "codex", "claude", "gemini", "openai", "profile", "manager"],
+  "keywords": ["codex", "controller", "cli", "profiles", "usage"],
   "author": "Bhanu Korthiwada",
   "license": "MIT",
   "bugs": {
@@ -20,11 +20,11 @@
     "codexctl": "./codexctl.js"
   },
   "optionalDependencies": {
-    "@codexctl/linux-x64": "^0.5.22",
-    "@codexctl/linux-arm64": "^0.5.22",
-    "@codexctl/darwin-x64": "^0.5.22",
-    "@codexctl/darwin-arm64": "^0.5.22",
-    "@codexctl/win32-x64": "^0.5.22"
+    "@codexctl/linux-x64": "^0.6.3",
+    "@codexctl/linux-arm64": "^0.6.3",
+    "@codexctl/darwin-x64": "^0.6.3",
+    "@codexctl/darwin-arm64": "^0.6.3",
+    "@codexctl/win32-x64": "^0.6.3"
   },
   "files": [
     "codexctl.js",

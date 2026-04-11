@@ -61,7 +61,7 @@ fn print_shell_env(shell: &str, profile: &str, profile_dir: &str) {
             println!("set -x CODEXCTL_DIR {};", shell_escape_bash(profile_dir));
             println!("# Use with: codex");
             println!(
-                "# Or run: eval (poly env {} --unset) to clear",
+                "# Or run: eval (codexctl env {} --unset) to clear",
                 shell_escape_bash(profile)
             );
         }
@@ -73,7 +73,7 @@ fn print_shell_env(shell: &str, profile: &str, profile_dir: &str) {
             );
             println!("# Use with: codex");
             println!(
-                "# Or run: poly env {} --unset | Invoke-Expression to clear",
+                "# Or run: codexctl env {} --unset | Invoke-Expression to clear",
                 shell_escape_powershell(profile)
             );
         }
@@ -81,13 +81,14 @@ fn print_shell_env(shell: &str, profile: &str, profile_dir: &str) {
             println!("set \"CODEXCTL={}\"", shell_escape_cmd(profile));
             println!("set \"CODEXCTL_DIR={}\"", shell_escape_cmd(profile_dir));
             println!("REM Use with: codex");
+            println!("REM Clear with: codexctl env {} --unset", profile);
         }
         _ => {
             println!("export CODEXCTL={};", shell_escape_bash(profile));
             println!("export CODEXCTL_DIR={};", shell_escape_bash(profile_dir));
             println!("# Use with: codex");
             println!(
-                "# Or run: eval $(poly env {} --unset) to clear",
+                "# Or run: eval $(codexctl env {} --unset) to clear",
                 shell_escape_bash(profile)
             );
         }
@@ -109,7 +110,9 @@ pub fn execute(
     let profile_dir = config.profile_path_validated(&profile_name)?;
 
     if !profile_dir.exists() {
-        anyhow::bail!("Profile '{profile}' not found. Use 'poly list' to see available profiles.");
+        anyhow::bail!(
+            "Profile '{profile}' not found. Use 'codexctl list' to see available profiles."
+        );
     }
 
     if unset {
@@ -155,13 +158,13 @@ pub fn execute(
         eprintln!("{} This won't affect other terminals!", "ℹ".blue());
         eprintln!();
         eprintln!("Example usage:");
-        eprintln!("  {}", format!("eval $(poly env {profile})").yellow());
+        eprintln!("  {}", format!("eval $(codexctl env {profile})").yellow());
         eprintln!("  {}  # Uses '{}' profile", "codex".yellow(), profile);
         eprintln!();
         eprintln!("To switch back to default:");
         eprintln!(
             "  {}",
-            format!("eval $(poly env {profile} --unset)").yellow()
+            format!("eval $(codexctl env {profile} --unset)").yellow()
         );
     }
 

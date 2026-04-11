@@ -1,6 +1,6 @@
 # @codexctl/linux-x64
 
-This is the Linux x86_64 binary for codexctl, a CLI tool for managing multiple AI CLI accounts.
+This is the Linux x86_64 binary for `codexctl`, the Codex Controller CLI.
 
 ## Installation
 

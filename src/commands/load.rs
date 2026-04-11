@@ -66,7 +66,7 @@ async fn do_load(
     let codex_dir = config.codex_dir();
 
     if !profile_dir.exists() {
-        anyhow::bail!("Profile '{name}' not found. Use 'poly list' to see available profiles.");
+        anyhow::bail!("Profile '{name}' not found. Use 'codexctl list' to see available profiles.");
     }
 
     // Load profile metadata
@@ -246,7 +246,9 @@ async fn auto_switch(
 
     let profiles_dir = config.profiles_dir();
     if !profiles_dir.exists() {
-        anyhow::bail!("No profiles directory found. Create profiles first with: poly save <name>");
+        anyhow::bail!(
+            "No profiles directory found. Create profiles first with: codexctl save <name>"
+        );
     }
 
     let mut entries = tokio::fs::read_dir(profiles_dir).await?;
@@ -463,7 +465,9 @@ async fn load_previous_profile(
     let marker = config.profiles_dir().join(".previous_profile");
 
     if !marker.exists() {
-        anyhow::bail!("No previous profile. Switch to a profile first before using 'poly load -'");
+        anyhow::bail!(
+            "No previous profile. Switch to a profile first before using 'codexctl load -'"
+        );
     }
 
     let previous_name = tokio::fs::read_to_string(&marker).await?;

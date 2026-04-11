@@ -17,7 +17,7 @@ async fn run_health_checks(config: &Config) -> Vec<(String, String, bool, String
         if codex_installed {
             "none".to_string()
         } else {
-            "Install with: npm install -g @openai/codex_cli".to_string()
+            "Install: npm install -g @openai/codex then npm install -g codexctl".to_string()
         },
     ));
     let codex_dir = config.codex_dir();
@@ -109,7 +109,7 @@ async fn run_health_checks(config: &Config) -> Vec<(String, String, bool, String
         if has_profiles {
             "none".to_string()
         } else {
-            "Create one with: poly save <name>".to_string()
+            "Create one with: codexctl save <name>".to_string()
         },
     ));
     checks

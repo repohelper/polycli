@@ -23,14 +23,15 @@ pub async fn execute(config: Config, _quiet: bool) -> Result<()> {
 
     if !codex_installed {
         println!("{}", "⚠ Codex CLI not found in PATH".yellow());
-        println!(
-            "  Install it first: {}",
-            "npm install -g @openai/codex-cli".cyan()
-        );
+        println!("  Prerequisites:");
+        println!("    1. {}", "npm install -g @openai/codex".cyan());
+        println!("    2. {}", "npm install -g codexctl".cyan());
         return Ok(());
     }
 
     println!("{} Codex CLI found", "✓".green());
+    println!();
+    println!("{}", "ℹ Codex Controller ready".blue());
     println!();
 
     // Main menu
@@ -107,7 +108,7 @@ pub async fn execute(config: Config, _quiet: bool) -> Result<()> {
     }
 
     println!("\n{} Setup complete!", "✓".green().bold());
-    println!("  Run {} for more commands", "poly --help".cyan());
+    println!("  Run {} for more commands", "codexctl --help".cyan());
 
     Ok(())
 }
