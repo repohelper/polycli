@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: npm-publish-${{ github.event_name }}-${{ github.event.release.tag_name || github.ref_name }}
@@ -63,7 +64,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       
       - name: Download release assets for version
@@ -115,6 +116,19 @@ jobs:
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${{ needs.get-version.outputs.version }}\"/" npm-platforms/${{ matrix.platform }}/package.json
           cat npm-platforms/${{ matrix.platform }}/package.json
 
+      - name: Validate package repository metadata
+        run: |
+          node -e '
+            const pkg = require("./npm-platforms/${{ matrix.platform }}/package.json");
+            const expected = `github.com/${process.env.GITHUB_REPOSITORY}.git`;
+            const actual = pkg?.repository?.url || "";
+            if (!actual.includes(expected)) {
+              console.error(`repository.url mismatch for ${pkg.name}: expected to include ${expected}, got ${actual}`);
+              process.exit(1);
+            }
+            console.log(`repository.url OK for ${pkg.name}`);
+          '
+
       - name: Check if version already exists on npm
         id: publish_check
         run: |
@@ -132,8 +146,6 @@ jobs:
         run: |
           cd npm-platforms/${{ matrix.platform }}
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-main:
     name: Publish main package
@@ -145,7 +157,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       
       - name: Update version
@@ -161,6 +173,20 @@ jobs:
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
           cat package.json
+
+      - name: Validate package repository metadata
+        working-directory: ./npm
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const expected = `github.com/${process.env.GITHUB_REPOSITORY}.git`;
+            const actual = pkg?.repository?.url || "";
+            if (!actual.includes(expected)) {
+              console.error(`repository.url mismatch for ${pkg.name}: expected to include ${expected}, got ${actual}`);
+              process.exit(1);
+            }
+            console.log(`repository.url OK for ${pkg.name}`);
+          '
 
       - name: Check if main package version already exists on npm
         id: publish_check
@@ -179,8 +205,6 @@ jobs:
         if: steps.publish_check.outputs.publish == 'true'
         working-directory: ./npm
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-success:
     name: Notify completion
