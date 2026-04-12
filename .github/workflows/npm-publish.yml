@@ -1,24 +1,47 @@
 name: Publish to npm
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (without leading v). If omitted, uses Cargo.toml version."
+        required: false
+        type: string
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ github.event_name }}-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   get-version:
-    name: Get version from Cargo.toml
+    name: Resolve version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
-      - name: Extract version from Cargo.toml
+      - name: Resolve version from release tag, workflow input, or Cargo.toml
         id: version
         run: |
-          VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "//;s/"//' | tr -d ' ')
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(grep '^version = ' Cargo.toml | head -n 1 | sed 's/version = "//;s/"//' | tr -d ' ')
+          fi
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9]+)*$ ]]; then
+            echo "Invalid version resolved: $VERSION"
+            exit 1
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   publish-platforms:
@@ -46,8 +69,19 @@ jobs:
       - name: Download release assets for version
         run: |
           TAG="v${{ needs.get-version.outputs.version }}"
-          gh release view "$TAG" --repo repohelper/codexctl >/dev/null
-          gh release download "$TAG" --repo repohelper/codexctl --dir artifacts
+          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null
+
+          for i in {1..6}; do
+            if gh release download "$TAG" --repo "${{ github.repository }}" --dir artifacts; then
+              break
+            fi
+            if [ "$i" -eq 6 ]; then
+              echo "Failed to download release assets for $TAG after retries"
+              exit 1
+            fi
+            sleep 10
+          done
+
           ls -la artifacts/
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -80,8 +114,21 @@ jobs:
         run: |
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${{ needs.get-version.outputs.version }}\"/" npm-platforms/${{ matrix.platform }}/package.json
           cat npm-platforms/${{ matrix.platform }}/package.json
+
+      - name: Check if version already exists on npm
+        id: publish_check
+        run: |
+          PKG_NAME=$(node -p "require('./npm-platforms/${{ matrix.platform }}/package.json').name")
+          PKG_VERSION="${{ needs.get-version.outputs.version }}"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "${PKG_NAME}@${PKG_VERSION} is already published. Skipping."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
       
       - name: Publish to npm
+        if: steps.publish_check.outputs.publish == 'true'
         run: |
           cd npm-platforms/${{ matrix.platform }}
           npm publish --access public
@@ -114,8 +161,22 @@ jobs:
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
           cat package.json
+
+      - name: Check if main package version already exists on npm
+        id: publish_check
+        working-directory: ./npm
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION="${{ needs.get-version.outputs.version }}"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "${PKG_NAME}@${PKG_VERSION} is already published. Skipping."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
       
       - name: Publish to npm
+        if: steps.publish_check.outputs.publish == 'true'
         working-directory: ./npm
         run: npm publish --access public
         env:
