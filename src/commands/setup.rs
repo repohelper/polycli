@@ -32,6 +32,8 @@ pub async fn execute(config: Config, _quiet: bool) -> Result<()> {
     println!("{} Codex CLI found", "✓".green());
     println!();
     println!("{}", "ℹ Codex Controller ready".blue());
+    println!("  `codexctl` only switches `auth.json`; sessions/history stay in place.");
+    println!("  Supported auth modes: ChatGPT/Codex, OpenAI API key, or both.");
     println!();
 
     // Main menu

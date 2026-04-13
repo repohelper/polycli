@@ -80,6 +80,29 @@ pub fn detect_auth_mode(auth_json: &Value) -> String {
     }
 }
 
+/// Whether the auth mode includes ChatGPT/Codex session auth.
+#[must_use]
+pub fn auth_mode_has_chatgpt(auth_mode: &str) -> bool {
+    matches!(auth_mode, "chatgpt" | "chatgpt+api_key")
+}
+
+/// Whether the auth mode includes OpenAI API key auth.
+#[must_use]
+pub fn auth_mode_has_api_key(auth_mode: &str) -> bool {
+    matches!(auth_mode, "api_key" | "chatgpt+api_key")
+}
+
+/// Human-readable label for an auth mode string.
+#[must_use]
+pub fn auth_mode_label(auth_mode: &str) -> &'static str {
+    match auth_mode {
+        "chatgpt" => "ChatGPT/Codex",
+        "api_key" => "OpenAI API key",
+        "chatgpt+api_key" => "ChatGPT/Codex + OpenAI API key",
+        _ => "Unknown",
+    }
+}
+
 /// Read `auth.json` from `codex_dir` and extract the authenticated email.
 ///
 /// Returns `None` if the file is absent, unreadable, or contains no email.
@@ -183,7 +206,7 @@ pub fn extract_usage_info(auth_json: &Value) -> Result<UsageInfo> {
 
 #[cfg(test)]
 mod tests {
-    use super::detect_auth_mode;
+    use super::{auth_mode_has_api_key, auth_mode_has_chatgpt, auth_mode_label, detect_auth_mode};
 
     #[test]
     fn test_detect_auth_mode_chatgpt() {
@@ -220,5 +243,27 @@ mod tests {
             "foo": "bar"
         });
         assert_eq!(detect_auth_mode(&auth), "unknown");
+    }
+
+    #[test]
+    fn test_auth_mode_capabilities() {
+        assert!(auth_mode_has_chatgpt("chatgpt"));
+        assert!(auth_mode_has_chatgpt("chatgpt+api_key"));
+        assert!(!auth_mode_has_chatgpt("api_key"));
+
+        assert!(auth_mode_has_api_key("api_key"));
+        assert!(auth_mode_has_api_key("chatgpt+api_key"));
+        assert!(!auth_mode_has_api_key("chatgpt"));
+    }
+
+    #[test]
+    fn test_auth_mode_labels() {
+        assert_eq!(auth_mode_label("chatgpt"), "ChatGPT/Codex");
+        assert_eq!(auth_mode_label("api_key"), "OpenAI API key");
+        assert_eq!(
+            auth_mode_label("chatgpt+api_key"),
+            "ChatGPT/Codex + OpenAI API key"
+        );
+        assert_eq!(auth_mode_label("unknown"), "Unknown");
     }
 }

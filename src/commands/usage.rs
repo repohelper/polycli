@@ -1,6 +1,10 @@
-use crate::utils::auth::{UsageInfo, extract_usage_info};
+use crate::utils::auth::{
+    UsageInfo, auth_mode_has_api_key, auth_mode_has_chatgpt, auth_mode_label, detect_auth_mode,
+    extract_usage_info,
+};
 use crate::utils::config::Config;
 use anyhow::{Context as _, Result};
+use chrono::{DateTime, Utc};
 use colored::Colorize as _;
 use prettytable::{Cell, Row, Table, format};
 
@@ -25,39 +29,55 @@ pub async fn execute(config: Config, all: bool, realtime: bool, quiet: bool) -> 
     let Ok(auth_json) = serde_json::from_str::<serde_json::Value>(&content) else {
         anyhow::bail!("Failed to parse auth.json");
     };
+    let auth_mode = detect_auth_mode(&auth_json);
 
     // Extract usage info from ChatGPT/Codex JWT claims when present.
     let usage_info = extract_usage_info(&auth_json).ok();
-    if let Some(info) = usage_info.as_ref() {
-        display_usage_table(info);
+    if auth_mode_has_chatgpt(&auth_mode) {
+        if let Some(info) = usage_info.as_ref() {
+            display_usage_table(info);
+        } else if !quiet {
+            println!("\n{}", "`Codex` plan claims unavailable".yellow().bold());
+            println!(
+                "  Current auth mode reports ChatGPT/Codex tokens, but claims could not be parsed."
+            );
+        }
     } else if !quiet {
-        println!("\n{}", "`Codex` plan claims unavailable".yellow().bold());
-        println!("  This profile appears to be API-key-only auth.");
-        println!(
-            "  Use {} to inspect API quota/billing.",
-            "`codexctl usage --realtime`".cyan()
-        );
+        println!("\n{}", "API-key auth mode detected".cyan().bold());
+        println!("  ChatGPT/Codex plan claims are not available in API-key-only mode.");
     }
 
-    // Fetch real-time quota if requested
+    // Fetch real-time quota if requested and API-key auth is available.
     if realtime {
-        match fetch_realtime_quota(&auth_json).await {
-            Ok(quota) => display_realtime_quota(&quota),
-            Err(e) => {
-                if !quiet {
-                    eprintln!("\n{} Could not fetch real-time quota: {}", "⚠".yellow(), e);
+        if !auth_mode_has_api_key(&auth_mode) {
+            if !quiet {
+                eprintln!(
+                    "\n{} `--realtime` requires API key auth. Current mode: {}",
+                    "⚠".yellow(),
+                    auth_mode
+                );
+            }
+        } else {
+            match fetch_realtime_quota(&auth_json).await {
+                Ok(quota) => display_realtime_quota(&quota),
+                Err(e) => {
+                    if !quiet {
+                        eprintln!("\n{} Could not fetch real-time quota: {}", "⚠".yellow(), e);
+                    }
                 }
             }
         }
     }
 
     // Display subscription status when ChatGPT/Codex plan claims are available.
-    if let Some(info) = usage_info.as_ref() {
+    if auth_mode_has_chatgpt(&auth_mode)
+        && let Some(info) = usage_info.as_ref()
+    {
         display_subscription_status(info);
     }
 
-    // Display helpful info about plan/API limits.
-    display_limits_info(usage_info.is_some());
+    // Display helpful info relevant to the current auth mode.
+    display_limits_info(&auth_mode, usage_info.is_some());
 
     Ok(())
 }
@@ -163,15 +183,13 @@ fn display_realtime_quota(quota: &crate::utils::api::RealTimeQuota) {
 /// Show usage information for all profiles
 #[allow(clippy::too_many_lines)]
 async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
-    use chrono::{DateTime, Utc};
-
     let profiles_dir = config.profiles_dir();
     if !profiles_dir.exists() {
         anyhow::bail!("No profiles directory found");
     }
 
     let mut entries = tokio::fs::read_dir(profiles_dir).await?;
-    let mut profiles_with_usage = Vec::new();
+    let mut profiles = Vec::new();
 
     // Scan all profiles
     while let Some(entry) = entries.next_entry().await? {
@@ -191,47 +209,18 @@ async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
         }
 
         // Read auth.json from profile
-        let auth_path = path.join("auth.json");
-        if !auth_path.exists() {
-            profiles_with_usage.push((name, None));
-            continue;
-        }
-
-        let auth_content = tokio::fs::read_to_string(&auth_path).await.ok();
-        let auth_json: Option<serde_json::Value> = auth_content
-            .as_ref()
-            .and_then(|c| serde_json::from_str(c).ok());
-
-        if let Some(auth) = auth_json {
-            if let Ok(usage) = extract_usage_info(&auth) {
-                profiles_with_usage.push((name, Some(usage)));
-            } else {
-                profiles_with_usage.push((name, None));
-            }
-        } else {
-            profiles_with_usage.push((name, None));
-        }
+        let meta = read_profile_meta(&path).await;
+        profiles.push(build_profile_usage_row(&path, name, meta).await);
     }
 
-    if profiles_with_usage.is_empty() {
+    if profiles.is_empty() {
         anyhow::bail!("No profiles found");
     }
 
-    // Sort by plan type (enterprise > team > personal)
-    profiles_with_usage.sort_by(|a, b| {
-        let score_a = a.1.as_ref().map_or(0, |u| match u.plan_type.as_str() {
-            "enterprise" => 3,
-            "team" => 2,
-            "personal" => 1,
-            _ => 0,
-        });
-        let score_b = b.1.as_ref().map_or(0, |u| match u.plan_type.as_str() {
-            "enterprise" => 3,
-            "team" => 2,
-            "personal" => 1,
-            _ => 0,
-        });
-        score_b.cmp(&score_a)
+    profiles.sort_by(|a, b| {
+        b.sort_score
+            .cmp(&a.sort_score)
+            .then_with(|| a.name.cmp(&b.name))
     });
 
     if !quiet {
@@ -244,64 +233,28 @@ async fn show_all_profiles_usage(config: Config, quiet: bool) -> Result<()> {
         // Header
         table.add_row(Row::new(vec![
             Cell::new("Profile").style_spec("Fb"),
-            Cell::new("Email").style_spec("Fb"),
-            Cell::new("Plan").style_spec("Fb"),
-            Cell::new("Days Left").style_spec("Fb"),
+            Cell::new("Auth Mode").style_spec("Fb"),
+            Cell::new("Identity").style_spec("Fb"),
+            Cell::new("Access").style_spec("Fb"),
             Cell::new("Status").style_spec("Fb"),
         ]));
 
-        for (name, usage_opt) in profiles_with_usage {
-            match usage_opt {
-                Some(usage) => {
-                    let plan_badge = match usage.plan_type.as_str() {
-                        "team" => "👥 Team".cyan(),
-                        "enterprise" => "🏢 Enterprise".magenta(),
-                        _ => "👤 Personal".yellow(),
-                    };
-
-                    let days_left = usage
-                        .subscription_end
-                        .as_ref()
-                        .and_then(|end| {
-                            DateTime::parse_from_rfc3339(end)
-                                .ok()
-                                .map(|d| (d.with_timezone(&Utc) - Utc::now()).num_days())
-                        })
-                        .unwrap_or(0);
-
-                    let status = if days_left > 7 {
-                        "✓ Active".green()
-                    } else if days_left > 0 {
-                        "⚠ Expiring Soon".yellow()
-                    } else {
-                        "✗ Expired".red()
-                    };
-
-                    table.add_row(Row::new(vec![
-                        Cell::new(&name).style_spec("Fg"),
-                        Cell::new(&usage.email),
-                        Cell::new(&plan_badge.to_string()),
-                        Cell::new(&days_left.to_string()),
-                        Cell::new(&status.to_string()),
-                    ]));
-                }
-                None => {
-                    table.add_row(Row::new(vec![
-                        Cell::new(&name).style_spec("Fg"),
-                        Cell::new("-"),
-                        Cell::new("?"),
-                        Cell::new("-"),
-                        Cell::new("⚠ No auth data"),
-                    ]));
-                }
-            }
+        for profile in profiles {
+            table.add_row(Row::new(vec![
+                Cell::new(&profile.name).style_spec("Fg"),
+                Cell::new(auth_mode_label(&profile.auth_mode)),
+                Cell::new(&profile.identity),
+                Cell::new(&profile.access),
+                Cell::new(&profile.status).style_spec(&profile.status_style),
+            ]));
         }
 
         table.printstd();
         println!();
         println!(
             "{}",
-            "💡 Tip: Use 'codexctl load auto' to switch to the best available profile".dimmed()
+            "💡 Tip: Use 'codexctl load auto' to switch toward the strongest available profile"
+                .dimmed()
         );
     }
 
@@ -404,19 +357,42 @@ fn display_subscription_status(info: &UsageInfo) {
     println!("  • ChatGPT/Codex plan access and API billing are separate");
 }
 
-fn display_limits_info(has_chatgpt_claims: bool) {
+fn display_limits_info(auth_mode: &str, has_chatgpt_claims: bool) {
     println!();
     println!("{}", "📋 Usage Limits".bold());
-    if has_chatgpt_claims {
-        println!("  `codexctl usage` shows ChatGPT/Codex plan claims from local auth tokens.");
+    match auth_mode {
+        "chatgpt" => {
+            if has_chatgpt_claims {
+                println!(
+                    "  `codexctl usage` shows ChatGPT/Codex plan claims from local auth tokens."
+                );
+            }
+            println!("  `codexctl usage --realtime` requires API key auth.");
+        }
+        "api_key" => {
+            println!("  API-key mode: plan claims are unavailable in `codexctl usage`.");
+            println!("  `codexctl usage --realtime` queries OpenAI API billing/quota.");
+        }
+        "chatgpt+api_key" => {
+            if has_chatgpt_claims {
+                println!(
+                    "  `codexctl usage` shows ChatGPT/Codex plan claims from local auth tokens."
+                );
+            }
+            println!("  `codexctl usage --realtime` queries OpenAI API billing/quota.");
+        }
+        _ => {
+            println!("  Unknown auth mode. Sign in with ChatGPT or API key by running `codex`.");
+        }
     }
-    println!("  `codexctl usage --realtime` queries OpenAI API billing/quota.");
-    println!(
-        "  API limits page: {}",
-        "https://platform.openai.com/settings/organization/limits"
-            .cyan()
-            .underline()
-    );
+    if auth_mode_has_api_key(auth_mode) {
+        println!(
+            "  API limits page: {}",
+            "https://platform.openai.com/settings/organization/limits"
+                .cyan()
+                .underline()
+        );
+    }
     println!();
     println!("{}", "💡 Tips:".dimmed());
     println!(
@@ -477,4 +453,254 @@ fn calculate_days_remaining(iso_date: &str) -> Result<i64> {
     let duration = end_date.with_timezone(&Utc) - now;
 
     Ok(duration.num_days())
+}
+
+#[derive(Debug)]
+struct ProfileUsageRow {
+    name: String,
+    auth_mode: String,
+    identity: String,
+    access: String,
+    status: String,
+    status_style: String,
+    sort_score: i32,
+}
+
+async fn read_profile_meta(
+    profile_dir: &std::path::Path,
+) -> Option<crate::utils::profile::ProfileMeta> {
+    let meta_path = profile_dir.join("profile.json");
+    let content = tokio::fs::read_to_string(meta_path).await.ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+async fn build_profile_usage_row(
+    profile_dir: &std::path::Path,
+    name: String,
+    meta: Option<crate::utils::profile::ProfileMeta>,
+) -> ProfileUsageRow {
+    let auth_path = profile_dir.join("auth.json");
+    let fallback_mode = meta
+        .as_ref()
+        .map(|m| m.auth_mode.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let fallback_identity = meta
+        .as_ref()
+        .and_then(|m| m.email.clone())
+        .unwrap_or_else(|| "-".to_string());
+
+    if !auth_path.exists() {
+        return ProfileUsageRow {
+            name,
+            auth_mode: fallback_mode,
+            identity: fallback_identity,
+            access: "No auth data".to_string(),
+            status: "Missing auth.json".to_string(),
+            status_style: "Fr".to_string(),
+            sort_score: 0,
+        };
+    }
+
+    let auth_content = match tokio::fs::read(&auth_path).await {
+        Ok(content) => content,
+        Err(_) => {
+            return ProfileUsageRow {
+                name,
+                auth_mode: fallback_mode,
+                identity: fallback_identity,
+                access: "Unreadable auth".to_string(),
+                status: "Cannot read auth.json".to_string(),
+                status_style: "Fr".to_string(),
+                sort_score: 0,
+            };
+        }
+    };
+
+    if crate::utils::crypto::is_encrypted(&auth_content) {
+        return ProfileUsageRow {
+            name,
+            auth_mode: fallback_mode,
+            identity: fallback_identity,
+            access: "Decrypt on load".to_string(),
+            status: "Locked (encrypted)".to_string(),
+            status_style: "Fy".to_string(),
+            sort_score: 1,
+        };
+    }
+
+    let auth_json: serde_json::Value = match serde_json::from_slice(&auth_content) {
+        Ok(json) => json,
+        Err(_) => {
+            return ProfileUsageRow {
+                name,
+                auth_mode: fallback_mode,
+                identity: fallback_identity,
+                access: "Invalid auth".to_string(),
+                status: "Invalid auth.json".to_string(),
+                status_style: "Fr".to_string(),
+                sort_score: 0,
+            };
+        }
+    };
+
+    let auth_mode = detect_auth_mode(&auth_json);
+    let usage_info = extract_usage_info(&auth_json).ok();
+
+    if auth_mode_has_chatgpt(&auth_mode)
+        && let Some(usage) = usage_info
+    {
+        let days_left = usage
+            .subscription_end
+            .as_ref()
+            .and_then(|end| {
+                DateTime::parse_from_rfc3339(end)
+                    .ok()
+                    .map(|d| (d.with_timezone(&Utc) - Utc::now()).num_days())
+            })
+            .unwrap_or(0);
+        let (status, status_style, sort_score) = if days_left > 7 {
+            (format!("Active ({days_left}d)"), "Fg", 4)
+        } else if days_left > 0 {
+            (format!("Expiring soon ({days_left}d)"), "Fy", 3)
+        } else {
+            ("Expired".to_string(), "Fr", 2)
+        };
+
+        let access = if auth_mode_has_api_key(&auth_mode) {
+            format!("{} + API key", usage.plan_type.to_uppercase())
+        } else {
+            usage.plan_type.to_uppercase()
+        };
+
+        return ProfileUsageRow {
+            name,
+            auth_mode,
+            identity: usage.email,
+            access,
+            status,
+            status_style: status_style.to_string(),
+            sort_score,
+        };
+    }
+
+    if auth_mode_has_api_key(&auth_mode) {
+        let status = if auth_mode_has_chatgpt(&auth_mode) {
+            "API ready; ChatGPT claims unavailable".to_string()
+        } else {
+            "API ready".to_string()
+        };
+        return ProfileUsageRow {
+            name,
+            auth_mode,
+            identity: fallback_identity,
+            access: "OpenAI API billing/quota".to_string(),
+            status,
+            status_style: "Fg".to_string(),
+            sort_score: 2,
+        };
+    }
+
+    ProfileUsageRow {
+        name,
+        auth_mode,
+        identity: fallback_identity,
+        access: "Unknown".to_string(),
+        status: "Unknown auth mode".to_string(),
+        status_style: "Fr".to_string(),
+        sort_score: 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_build_profile_usage_row_api_key_profile() {
+        let temp_dir = TempDir::new().unwrap();
+        tokio::fs::write(
+            temp_dir.path().join("auth.json"),
+            r#"{"api_key":"sk-test"}"#,
+        )
+        .await
+        .unwrap();
+
+        let row = build_profile_usage_row(temp_dir.path(), "api".to_string(), None).await;
+        assert_eq!(row.auth_mode, "api_key");
+        assert_eq!(row.access, "OpenAI API billing/quota");
+        assert_eq!(row.status, "API ready");
+    }
+
+    #[tokio::test]
+    async fn test_build_profile_usage_row_encrypted_profile_uses_metadata() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut profile = crate::utils::profile::Profile::new(
+            "encrypted".to_string(),
+            Some("hidden@example.com".to_string()),
+            None,
+        );
+        profile.meta.auth_mode = "chatgpt".to_string();
+        profile.add_file(
+            "auth.json",
+            br#"{"tokens":{"id_token":"header.payload.signature"}}"#.to_vec(),
+        );
+        profile
+            .save_to_disk_encrypted(temp_dir.path(), Some(&"secret".to_string()))
+            .unwrap();
+        let meta = read_profile_meta(temp_dir.path()).await;
+
+        let row = build_profile_usage_row(temp_dir.path(), "encrypted".to_string(), meta).await;
+        assert_eq!(row.status, "Locked (encrypted)");
+        assert_eq!(row.identity, "hidden@example.com");
+    }
+
+    #[tokio::test]
+    async fn test_build_profile_usage_row_hybrid_profile() {
+        let temp_dir = TempDir::new().unwrap();
+        let auth = make_chatgpt_auth("team", 30, true);
+        tokio::fs::write(temp_dir.path().join("auth.json"), auth.to_string())
+            .await
+            .unwrap();
+
+        let row = build_profile_usage_row(temp_dir.path(), "hybrid".to_string(), None).await;
+        assert_eq!(row.auth_mode, "chatgpt+api_key");
+        assert_eq!(row.identity, "user@example.com");
+        assert_eq!(row.access, "TEAM + API key");
+    }
+
+    fn make_chatgpt_auth(
+        plan: &str,
+        days_until_expiry: i64,
+        with_api_key: bool,
+    ) -> serde_json::Value {
+        use chrono::Duration;
+
+        let now = Utc::now();
+        let payload = serde_json::json!({
+            "email": "user@example.com",
+            "https://api.openai.com/auth": {
+                "chatgpt_plan_type": plan,
+                "chatgpt_subscription_active_start": now.to_rfc3339(),
+                "chatgpt_subscription_active_until": (now + Duration::days(days_until_expiry)).to_rfc3339(),
+                "chatgpt_account_id": "acct_test",
+                "organizations": []
+            }
+        });
+        let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(payload.to_string().as_bytes());
+        let token = format!("{header}.{payload}.sig");
+
+        if with_api_key {
+            serde_json::json!({
+                "tokens": { "id_token": token },
+                "api_key": "sk-test"
+            })
+        } else {
+            serde_json::json!({
+                "tokens": { "id_token": token }
+            })
+        }
+    }
 }

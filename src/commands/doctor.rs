@@ -1,3 +1,6 @@
+use crate::utils::auth::{
+    auth_mode_has_api_key, auth_mode_has_chatgpt, auth_mode_label, detect_auth_mode,
+};
 use crate::utils::config::Config;
 use anyhow::Result;
 use colored::Colorize as _;
@@ -54,10 +57,14 @@ async fn run_health_checks(config: &Config) -> Vec<(String, String, bool, String
     ));
     let mut auth_valid = false;
     let mut auth_error = String::new();
+    let mut auth_mode = String::from("unknown");
     if auth_exists {
         match tokio::fs::read_to_string(&auth_file).await {
             Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
-                Ok(_) => auth_valid = true,
+                Ok(auth_json) => {
+                    auth_valid = true;
+                    auth_mode = detect_auth_mode(&auth_json);
+                }
                 Err(e) => auth_error = format!("Invalid JSON: {e}"),
             },
             Err(e) => auth_error = format!("Cannot read: {e}"),
@@ -75,6 +82,50 @@ async fn run_health_checks(config: &Config) -> Vec<(String, String, bool, String
             "none".to_string()
         } else {
             auth_error
+        },
+    ));
+    let auth_mode_known = auth_valid && auth_mode != "unknown";
+    checks.push((
+        "Auth Mode".to_string(),
+        if auth_mode_known {
+            format!("✓ {}", auth_mode_label(&auth_mode))
+        } else if auth_valid {
+            "✗ Unknown".to_string()
+        } else {
+            "✗ Unavailable".to_string()
+        },
+        auth_mode_known,
+        if auth_mode_known {
+            "none".to_string()
+        } else if auth_valid {
+            "Re-authenticate with: codex".to_string()
+        } else {
+            "Run: codex (then sign in with ChatGPT or API key)".to_string()
+        },
+    ));
+    let usage_surface = if auth_mode_known {
+        match (
+            auth_mode_has_chatgpt(&auth_mode),
+            auth_mode_has_api_key(&auth_mode),
+        ) {
+            (true, true) => "✓ Local plan claims + API quota".to_string(),
+            (true, false) => "✓ Local plan claims".to_string(),
+            (false, true) => "✓ API billing/quota".to_string(),
+            (false, false) => "✗ Unknown".to_string(),
+        }
+    } else if auth_valid {
+        "✗ Unknown".to_string()
+    } else {
+        "✗ Unavailable".to_string()
+    };
+    checks.push((
+        "Usage Surface".to_string(),
+        usage_surface,
+        auth_mode_known,
+        if auth_mode_known {
+            "none".to_string()
+        } else {
+            "Run `codexctl status` after signing in to inspect capabilities".to_string()
         },
     ));
     let profiles_dir = config.profiles_dir();
