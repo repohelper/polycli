@@ -86,25 +86,46 @@ pub fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Create a backup of the current codex config
+/// Create a backup containing only the live `auth.json`.
+///
+/// Returns `Ok(None)` when there is no live auth file to back up.
 ///
 /// # Errors
 ///
-/// Returns an error if the source directory doesn't exist or copy fails
-pub fn create_backup(codex_dir: &Path, backup_dir: &Path) -> Result<PathBuf> {
+/// Returns an error if the auth file exists but cannot be copied.
+pub fn create_auth_backup(codex_dir: &Path, backup_dir: &Path) -> Result<Option<PathBuf>> {
     use chrono::Local;
 
-    let timestamp = Local::now().format("%Y%m%d_%H%M%S");
-    let backup_name = format!("codex_backup_{timestamp}");
-    let backup_path = backup_dir.join(&backup_name);
-
-    if !codex_dir.exists() {
-        anyhow::bail!("Codex directory does not exist: {}", codex_dir.display());
+    let auth_path = codex_dir.join("auth.json");
+    if !auth_path.exists() {
+        return Ok(None);
     }
 
-    copy_dir_recursive(codex_dir, &backup_path)?;
+    std::fs::create_dir_all(backup_dir).with_context(|| {
+        format!(
+            "Failed to create backup directory: {}",
+            backup_dir.display()
+        )
+    })?;
 
-    Ok(backup_path)
+    let timestamp = Local::now().format("%Y%m%d_%H%M%S");
+    let backup_path = backup_dir.join(format!("auth_backup_{timestamp}"));
+    std::fs::create_dir_all(&backup_path)
+        .with_context(|| format!("Failed to create backup path: {}", backup_path.display()))?;
+
+    let backup_auth_path = backup_path.join("auth.json");
+    std::fs::copy(&auth_path, &backup_auth_path).with_context(|| {
+        format!(
+            "Failed to copy {} to {}",
+            auth_path.display(),
+            backup_auth_path.display()
+        )
+    })?;
+    if let Ok(metadata) = std::fs::metadata(&auth_path) {
+        let _ = std::fs::set_permissions(&backup_auth_path, metadata.permissions());
+    }
+
+    Ok(Some(backup_path))
 }
 
 /// Write bytes to an existing path while preserving existing filesystem permissions.
@@ -237,36 +258,27 @@ mod tests {
     }
 
     #[test]
-    fn test_create_backup() {
+    fn test_create_auth_backup() {
         let codex_dir = TempDir::new().unwrap();
         let backup_dir = TempDir::new().unwrap();
+        std::fs::write(codex_dir.path().join("auth.json"), "{\"token\":\"secret\"}").unwrap();
+        std::fs::write(codex_dir.path().join("sessions.json"), "{}").unwrap();
 
-        // Create codex content
-        std::fs::write(
-            codex_dir.path().join("auth.json"),
-            "{\"token\": \"secret\"}",
-        )
-        .unwrap();
+        let backup_path = create_auth_backup(codex_dir.path(), backup_dir.path())
+            .unwrap()
+            .expect("backup should exist");
 
-        // Create backup
-        let backup_path = create_backup(codex_dir.path(), backup_dir.path()).unwrap();
-
-        // Verify
-        assert!(backup_path.exists());
         assert!(backup_path.join("auth.json").exists());
-        assert_eq!(
-            std::fs::read_to_string(backup_path.join("auth.json")).unwrap(),
-            "{\"token\": \"secret\"}"
-        );
+        assert!(!backup_path.join("sessions.json").exists());
     }
 
     #[test]
-    fn test_create_backup_nonexistent() {
+    fn test_create_auth_backup_without_auth_file() {
+        let codex_dir = TempDir::new().unwrap();
         let backup_dir = TempDir::new().unwrap();
-        let nonexistent = std::path::Path::new("/nonexistent/path/that/does/not/exist");
 
-        let result = create_backup(nonexistent, backup_dir.path());
-        assert!(result.is_err());
+        let backup = create_auth_backup(codex_dir.path(), backup_dir.path()).unwrap();
+        assert!(backup.is_none());
     }
 
     #[test]

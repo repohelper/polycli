@@ -1,6 +1,6 @@
 use crate::utils::auth::read_email_from_codex_dir;
 use crate::utils::config::Config;
-use crate::utils::files::{create_backup, write_bytes_preserve_permissions};
+use crate::utils::files::{create_auth_backup, write_bytes_preserve_permissions};
 use crate::utils::validation::ProfileName;
 use anyhow::{Context as _, Result};
 use colored::Colorize as _;
@@ -141,19 +141,15 @@ async fn do_load(
         Some(bar)
     };
 
-    // Backup current before switching
+    // Backup the live auth file before switching.
     if codex_dir.exists() {
         let backup_dir = config.backup_dir();
-        let Ok(backup_path) = create_backup(codex_dir, backup_dir) else {
-            anyhow::bail!("Failed to create backup");
-        };
-        if let Some(ref bar) = pb {
+        let backup_path =
+            create_auth_backup(codex_dir, backup_dir).context("Failed to create auth backup")?;
+        if let (Some(bar), Some(path)) = (pb.as_ref(), backup_path) {
             bar.set_message(format!(
-                "Backed up to {}...",
-                backup_path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
+                "Backed up auth to {}...",
+                path.file_name().unwrap_or_default().to_string_lossy()
             ));
         }
     }

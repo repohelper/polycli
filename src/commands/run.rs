@@ -11,6 +11,7 @@ use tokio::process::Command;
 pub async fn execute(
     config: Config,
     profile: String,
+    passphrase: Option<String>,
     command: Vec<String>,
     quiet: bool,
 ) -> Result<()> {
@@ -27,7 +28,7 @@ pub async fn execute(
         anyhow::bail!("No command specified to run");
     }
 
-    let profile_auth = load_profile_auth(&profile_dir, &profile).await?;
+    let profile_auth = load_profile_auth(&profile_dir, &profile, passphrase.as_ref()).await?;
     let original_auth = apply_profile_auth(codex_dir, &profile_auth).await?;
 
     // Execute command
@@ -85,7 +86,11 @@ pub async fn execute(
     Ok(())
 }
 
-async fn load_profile_auth(profile_dir: &Path, profile_name: &str) -> Result<Vec<u8>> {
+async fn load_profile_auth(
+    profile_dir: &Path,
+    profile_name: &str,
+    passphrase: Option<&String>,
+) -> Result<Vec<u8>> {
     let profile_auth_path = profile_dir.join("auth.json");
     if !profile_auth_path.exists() {
         anyhow::bail!("Profile '{profile_name}' does not contain auth.json");
@@ -96,9 +101,8 @@ async fn load_profile_auth(profile_dir: &Path, profile_name: &str) -> Result<Vec
         .with_context(|| format!("Failed to read {}", profile_auth_path.display()))?;
 
     if crate::utils::crypto::is_encrypted(&profile_auth) {
-        anyhow::bail!(
-            "Profile '{profile_name}' is encrypted. Use 'codexctl load {profile_name} --passphrase ...' instead."
-        );
+        return crate::utils::crypto::decrypt(&profile_auth, passphrase)
+            .with_context(|| format!("Failed to decrypt profile '{profile_name}'"));
     }
 
     Ok(profile_auth)
@@ -141,4 +145,54 @@ async fn restore_original_auth(codex_dir: &Path, original_auth: Option<Vec<u8>>)
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_load_profile_auth_decrypts_encrypted_profile() {
+        let dir = TempDir::new().unwrap();
+        let plaintext = br#"{"api_key":"sk-test"}"#.to_vec();
+        let encrypted =
+            crate::utils::crypto::encrypt(&plaintext, Some(&"secret".to_string())).unwrap();
+        tokio::fs::write(dir.path().join("auth.json"), encrypted)
+            .await
+            .unwrap();
+
+        let auth = load_profile_auth(dir.path(), "encrypted", Some(&"secret".to_string()))
+            .await
+            .unwrap();
+        assert_eq!(auth, plaintext);
+    }
+
+    #[tokio::test]
+    async fn test_restore_original_auth_removes_temp_auth_when_none() {
+        let dir = TempDir::new().unwrap();
+        tokio::fs::write(dir.path().join("auth.json"), b"temp")
+            .await
+            .unwrap();
+
+        restore_original_auth(dir.path(), None).await.unwrap();
+        assert!(!dir.path().join("auth.json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_apply_profile_auth_preserves_original_auth() {
+        let dir = TempDir::new().unwrap();
+        tokio::fs::write(dir.path().join("auth.json"), b"original")
+            .await
+            .unwrap();
+
+        let original = apply_profile_auth(dir.path(), b"replacement")
+            .await
+            .unwrap();
+        assert_eq!(original, Some(b"original".to_vec()));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("auth.json")).await.unwrap(),
+            b"replacement"
+        );
+    }
 }

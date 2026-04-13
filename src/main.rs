@@ -126,6 +126,9 @@ pub enum Commands {
         /// Profile name to use
         #[arg(short, long)]
         profile: String,
+        /// Passphrase to decrypt profile (if encrypted)
+        #[arg(short = 'P', long, env = "CODEXCTL_PASSPHRASE")]
+        passphrase: Option<String>,
         /// Command to run
         #[arg(required = true)]
         command: Vec<String>,
@@ -281,8 +284,12 @@ async fn main() -> Result<()> {
         Commands::Backup { name } => {
             backup::execute(config, name, cli.quiet)?;
         }
-        Commands::Run { profile, command } => {
-            run::execute(config, profile, command, cli.quiet).await?;
+        Commands::Run {
+            profile,
+            passphrase,
+            command,
+        } => {
+            run::execute(config, profile, passphrase, command, cli.quiet).await?;
         }
         Commands::Env {
             profile,
