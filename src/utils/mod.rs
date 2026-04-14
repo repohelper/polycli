@@ -1,9 +1,13 @@
 pub mod api;
 pub mod auth;
+pub mod command_exit;
 pub mod config;
 pub mod crypto;
 pub mod files;
 pub mod migrate;
 pub mod profile;
+pub mod runs;
+pub mod task;
 pub mod transaction;
+pub mod validate;
 pub mod validation;

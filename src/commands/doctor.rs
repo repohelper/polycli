@@ -151,7 +151,7 @@ async fn run_health_checks(config: &Config) -> Vec<(String, String, bool, String
             if entry.path().is_dir() {
                 let name = entry.file_name();
                 let name = name.to_string_lossy();
-                if name == "backups" || name.starts_with('.') {
+                if Config::is_reserved_entry_name(&name) {
                     continue;
                 }
                 profile_count += 1;

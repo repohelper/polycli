@@ -86,7 +86,7 @@ pub async fn execute(
     Ok(())
 }
 
-async fn load_profile_auth(
+pub(crate) async fn load_profile_auth(
     profile_dir: &Path,
     profile_name: &str,
     passphrase: Option<&String>,
@@ -108,7 +108,10 @@ async fn load_profile_auth(
     Ok(profile_auth)
 }
 
-async fn apply_profile_auth(codex_dir: &Path, profile_auth: &[u8]) -> Result<Option<Vec<u8>>> {
+pub(crate) async fn apply_profile_auth(
+    codex_dir: &Path,
+    profile_auth: &[u8],
+) -> Result<Option<Vec<u8>>> {
     tokio::fs::create_dir_all(codex_dir)
         .await
         .with_context(|| format!("Failed to create codex directory: {}", codex_dir.display()))?;
@@ -130,7 +133,10 @@ async fn apply_profile_auth(codex_dir: &Path, profile_auth: &[u8]) -> Result<Opt
     Ok(original_auth)
 }
 
-async fn restore_original_auth(codex_dir: &Path, original_auth: Option<Vec<u8>>) -> Result<()> {
+pub(crate) async fn restore_original_auth(
+    codex_dir: &Path,
+    original_auth: Option<Vec<u8>>,
+) -> Result<()> {
     let auth_path = codex_dir.join("auth.json");
     match original_auth {
         Some(content) => write_bytes_preserve_permissions(&auth_path, &content)

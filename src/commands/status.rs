@@ -232,7 +232,7 @@ fn count_profiles(profiles_dir: &std::path::Path) -> usize {
                                 return false;
                             }
                             let name = entry.file_name().to_string_lossy().to_string();
-                            name != "backups" && !name.starts_with('.')
+                            !Config::is_reserved_entry_name(&name)
                         })
                         .unwrap_or(false)
                 })

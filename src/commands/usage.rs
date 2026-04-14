@@ -235,7 +235,7 @@ async fn show_all_profiles_usage(config: Config, json: bool, quiet: bool) -> Res
             .to_string_lossy()
             .to_string();
 
-        if name == "backups" || name.starts_with('.') {
+        if Config::is_reserved_entry_name(&name) {
             continue;
         }
 

@@ -35,7 +35,7 @@ pub async fn execute(config: Config, json: bool, quiet: bool) -> Result<()> {
             .to_string_lossy()
             .to_string();
 
-        if name == "backups" || name.starts_with('.') {
+        if Config::is_reserved_entry_name(&name) {
             continue;
         }
 

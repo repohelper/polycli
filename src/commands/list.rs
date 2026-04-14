@@ -34,7 +34,7 @@ pub async fn execute(config: Config, detailed: bool, quiet: bool) -> Result<()> 
             .to_string();
 
         // Skip internal directories
-        if name == "backups" || name.starts_with('.') {
+        if Config::is_reserved_entry_name(&name) {
             continue;
         }
 

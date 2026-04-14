@@ -1,5 +1,7 @@
 //! Integration tests for structured JSON command output.
 
+#![allow(missing_docs)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

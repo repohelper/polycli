@@ -39,6 +39,8 @@ pub struct Config {
     codex_dir: PathBuf,
     /// Backup directory
     backup_dir: PathBuf,
+    /// Persisted run ledger directory
+    runs_dir: PathBuf,
 }
 
 impl Config {
@@ -60,6 +62,7 @@ impl Config {
 
         let codex_dir = codex_data_dir()?;
         let backup_dir = profiles_dir.join("backups");
+        let runs_dir = profiles_dir.join("runs");
 
         // Ensure directories exist - using let-else for early returns
         std::fs::create_dir_all(&profiles_dir).with_context(|| {
@@ -74,11 +77,14 @@ impl Config {
                 backup_dir.display()
             )
         })?;
+        std::fs::create_dir_all(&runs_dir)
+            .with_context(|| format!("Failed to create runs directory: {}", runs_dir.display()))?;
 
         Ok(Self {
             profiles_dir,
             codex_dir,
             backup_dir,
+            runs_dir,
         })
     }
 
@@ -95,6 +101,16 @@ impl Config {
     #[must_use]
     pub fn backup_dir(&self) -> &Path {
         &self.backup_dir
+    }
+
+    #[must_use]
+    pub fn runs_dir(&self) -> &Path {
+        &self.runs_dir
+    }
+
+    #[must_use]
+    pub fn is_reserved_entry_name(name: &str) -> bool {
+        matches!(name, "backups" | "runs") || name.starts_with('.')
     }
 
     /// Returns the path for a validated profile name, enforcing that the
@@ -144,6 +160,7 @@ mod tests {
 
         assert!(config.profiles_dir().exists());
         assert!(config.backup_dir().exists());
+        assert!(config.runs_dir().exists());
         assert_eq!(config.profiles_dir(), temp_dir.path());
     }
 
@@ -182,6 +199,14 @@ mod tests {
         assert!(files.contains(&"history.jsonl"));
         assert!(files.contains(&"sessions/"));
         assert!(files.contains(&"memories/"));
+    }
+
+    #[test]
+    fn test_reserved_entry_names() {
+        assert!(Config::is_reserved_entry_name("backups"));
+        assert!(Config::is_reserved_entry_name("runs"));
+        assert!(Config::is_reserved_entry_name(".current_profile"));
+        assert!(!Config::is_reserved_entry_name("work"));
     }
 
     #[test]

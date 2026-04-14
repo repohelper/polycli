@@ -104,7 +104,7 @@ async fn migrate_to_v0_4_0(config: &Config, meta: &mut MigrationMeta) -> Result<
             .unwrap_or_default();
 
         // Skip hidden directories and special files
-        if name.starts_with('.') || name == "backups" {
+        if crate::utils::config::Config::is_reserved_entry_name(&name) {
             continue;
         }
 

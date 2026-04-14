@@ -25,7 +25,7 @@ pub async fn execute(config: Config, quiet: bool) -> Result<()> {
                 .unwrap_or_default();
 
             // Skip hidden/system directories
-            if name.starts_with('.') || name == "backups" {
+            if Config::is_reserved_entry_name(&name) {
                 continue;
             }
 

@@ -1,15 +1,16 @@
 //! `CodexCTL` - Codex Controller
 
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand, ValueHint};
+use clap::{ArgGroup, Parser, Subcommand, ValueHint};
 use tracing::{debug, info};
 
 mod commands;
 mod utils;
 
-use commands::{backup, delete, list, load, run, save, status};
+use commands::{backup, delete, list, load, run, run_loop, runs, save, status, validate};
 use utils::config::Config;
 
 /// `CodexCTL` - Codex Controller
@@ -121,6 +122,85 @@ pub enum Commands {
         /// Emit structured JSON output
         #[arg(long)]
         json: bool,
+    },
+
+    /// Run deterministic acceptance checks from a bet spec or CLI commands
+    #[command(group(
+        ArgGroup::new("validate_input")
+            .required(true)
+            .args(["task", "check"])
+    ))]
+    Validate {
+        /// Path to a bet spec file
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        task: Option<PathBuf>,
+        /// Shell command to execute as a validation check
+        #[arg(long)]
+        check: Vec<String>,
+        /// Timeout in seconds for each check
+        #[arg(long, default_value_t = 300)]
+        timeout_seconds: u64,
+        /// Override working directory for validation
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        cwd: Option<PathBuf>,
+        /// Stop on the first failing or timed-out check
+        #[arg(long)]
+        fail_fast: bool,
+        /// Emit structured JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Execute a shaped bet in an outer agent loop with deterministic validation
+    #[command(group(
+        ArgGroup::new("run_loop_input")
+            .required(true)
+            .args(["task", "resume"])
+    ))]
+    RunLoop {
+        /// Path to a bet spec file
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        task: Option<PathBuf>,
+        /// Resume a persisted run by ID
+        #[arg(long)]
+        resume: Option<String>,
+        /// Override maximum iteration count
+        #[arg(long)]
+        max_iterations: Option<u32>,
+        /// Override maximum runtime in minutes
+        #[arg(long)]
+        timeout_minutes: Option<u32>,
+        /// Override maximum consecutive failing iterations
+        #[arg(long)]
+        max_consecutive_failures: Option<u32>,
+        /// Activate a saved auth profile during each agent iteration
+        #[arg(long)]
+        profile: Option<String>,
+        /// Passphrase to decrypt the profile (if encrypted)
+        #[arg(short = 'P', long, env = "CODEXCTL_PASSPHRASE")]
+        passphrase: Option<String>,
+        /// Show planned run metadata without persisting or executing
+        #[arg(long)]
+        dry_run: bool,
+        /// Emit structured JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Inspect persisted run records for shaped bet executions
+    Runs {
+        /// Show only the latest run
+        #[arg(long)]
+        latest: bool,
+        /// Show a specific run by ID
+        #[arg(long)]
+        id: Option<String>,
+        /// Emit structured JSON output
+        #[arg(long)]
+        json: bool,
+        /// Show the latest events for a single run
+        #[arg(long)]
+        tail: bool,
     },
 
     /// Create a backup of current profile
@@ -240,7 +320,25 @@ pub enum ShellType {
 
 #[tokio::main]
 #[allow(clippy::too_many_lines)]
-async fn main() -> Result<()> {
+async fn main() -> ExitCode {
+    match try_main().await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            if let Some(command_error) =
+                error.downcast_ref::<crate::utils::command_exit::CommandExitError>()
+            {
+                eprintln!("{}", command_error.message());
+                ExitCode::from(command_error.code())
+            } else {
+                eprintln!("{error:#}");
+                ExitCode::from(1)
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+async fn try_main() -> Result<()> {
     let cli = Cli::parse();
 
     // Initialize logging with modern Rust 2024 formatting
@@ -300,6 +398,59 @@ async fn main() -> Result<()> {
         }
         Commands::Verify { json } => {
             commands::verify::execute(config, json, cli.quiet).await?;
+        }
+        Commands::Validate {
+            task,
+            check,
+            timeout_seconds,
+            cwd,
+            fail_fast,
+            json,
+        } => {
+            validate::execute(
+                task,
+                check,
+                timeout_seconds,
+                cwd,
+                fail_fast,
+                json,
+                cli.quiet,
+            )
+            .await?;
+        }
+        Commands::RunLoop {
+            task,
+            resume,
+            max_iterations,
+            timeout_minutes,
+            max_consecutive_failures,
+            profile,
+            passphrase,
+            dry_run,
+            json,
+        } => {
+            run_loop::execute(
+                config,
+                task,
+                resume,
+                max_iterations,
+                timeout_minutes,
+                max_consecutive_failures,
+                profile,
+                passphrase,
+                dry_run,
+                json,
+                cli.quiet,
+            )
+            .await?;
+        }
+        Commands::Runs {
+            latest,
+            id,
+            json,
+            tail,
+        } => {
+            runs::execute(config, latest, id, json, tail, cli.quiet).await?;
         }
         Commands::Backup { name } => {
             backup::execute(config, name, cli.quiet)?;
